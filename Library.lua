@@ -693,13 +693,13 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 					local fill = New("Frame", { Parent = track, BackgroundColor3 = T2.Accent, BorderSizePixel = 0,
 						Size = UDim2.new(0, 0, 0, 2), Position = UDim2.new(0, 1, 0.5, -1) }) :: Frame
 					trackAccent(fill, "bg")
-					local knob = New("Frame", { Parent = track, BackgroundTransparency = 1,
-						Size = UDim2.fromOffset(5, 12), Position = UDim2.new(0, 0, 0.5, -6) }) :: Frame
-					New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
-						Size = UDim2.fromOffset(5, 5), AnchorPoint = Vector2.new(0.5, 0.5),
-						Position = UDim2.new(0, 2.5, 0, 9), Rotation = 45 })
-					New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
-						Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(5, 9) })
+						local knob = New("Frame", { Parent = track, BackgroundTransparency = 1,
+							Size = UDim2.fromOffset(5, 12), Position = UDim2.new(0, 0, 0.5, -6) }) :: Frame
+						New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
+							Size = UDim2.fromOffset(3, 3), AnchorPoint = Vector2.new(0.5, 0.5),
+							Position = UDim2.new(0, 2.5, 0, 10), Rotation = 45 })
+						New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
+							Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(5, 10) })
 					local function paint2()
 						local ch = string.format("%02X", math.floor(C.Value[comp] * 255 + 0.5))
 						ll.Text = comp .. " " .. ch
@@ -972,14 +972,15 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			local fill = New("Frame", { Parent = track, BackgroundColor3 = T2.Accent, BorderSizePixel = 0,
 				Position = UDim2.new(0, 1, 0.5, -1), Size = UDim2.new(0, 0, 0, 2) }) :: Frame
 			trackAccent(fill, "bg")
-			-- slider.cpp pentagon knob: rect + downward point (diamond tucked behind)
+			-- slider.cpp pentagon knob: 5x10 rect + 2px point (3x3 diamond
+			-- tucked behind: vertices stay inside the 5px body width)
 			local knob = New("Frame", { Parent = track, BackgroundTransparency = 1,
 				Size = UDim2.fromOffset(5, 12), Position = UDim2.new(0, 0, 0.5, -6) }) :: Frame
 			New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
-				Size = UDim2.fromOffset(5, 5), AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.new(0, 2.5, 0, 9), Rotation = 45 })
+				Size = UDim2.fromOffset(3, 3), AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(0, 2.5, 0, 10), Rotation = 45 })
 			New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
-				Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(5, 9) })
+				Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(5, 10) })
 
 			local S: any = { Value = default }
 			local function fmt(v: number): string

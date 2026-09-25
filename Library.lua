@@ -646,22 +646,42 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			end
 			if cflag then Chuddy:FlagType(cflag, "color") end
 			local sw = New("TextButton", { Parent = anchor, Text = "", AutoButtonColor = false,
-				BackgroundColor3 = def, BorderSizePixel = 0,
+				BackgroundColor3 = def, BorderSizePixel = 0, ZIndex = 3,
 				AnchorPoint = Vector2.new(1, 0.5), Size = UDim2.fromOffset(28, 10) }) :: TextButton
 			sw.Position = getPos(28)
 			Stroke(sw, T2.Stroke, 1)
-			local C: any = { Value = def }
+			local alpha0 = 1
+			if cflag then
+				local av = Chuddy.Flags[cflag .. "Alpha"]
+				if typeof(av) == "number" then alpha0 = math.clamp(av, 0, 1) end
+			end
+			local C: any = { Value = def, Alpha = alpha0 }
+			local function refreshSwatch()
+				sw.BackgroundColor3 = C.Value
+				sw.BackgroundTransparency = 1 - C.Alpha
+			end
 			function C:Set(c: Color3)
-				C.Value = c; sw.BackgroundColor3 = c
+				C.Value = c; refreshSwatch()
 				if cflag then Chuddy.Flags[cflag] = c end
 				if ccb then task.spawn(ccb, c) end
 			end
-			-- popup with 3 RGB sliders
+			function C:SetAlpha(a: number)
+				C.Alpha = math.clamp(a, 0, 1); refreshSwatch()
+				if cflag then Chuddy.Flags[cflag .. "Alpha"] = C.Alpha end
+				if ccb then task.spawn(ccb, C.Value) end
+			end
+			if cflag then
+				Chuddy:FlagType(cflag .. "Alpha", "float")
+				Chuddy:RegisterFlag(cflag .. "Alpha", C.Alpha, function(a) C:SetAlpha(a) end)
+			end
+			refreshSwatch()
+			-- interactive picker: SV square + hue bar + alpha bar
+			-- (colorswatch.cpp ColorPickerBody)
 			local pop: Frame? = nil
 			sw.MouseButton1Click:Connect(function()
 				if pop and pop.Parent then pop:Destroy() pop = nil return end
 				pop = New("Frame", { BackgroundColor3 = T2.CheckboxBg, BorderSizePixel = 0,
-					Size = UDim2.fromOffset(150, 86) }) :: Frame
+					Size = UDim2.fromOffset(150, 178) }) :: Frame
 				pop.Parent = screen; pop.ZIndex = 60
 				do
 					local p = sw.AbsolutePosition
@@ -669,49 +689,133 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 					pop.Position = UDim2.fromOffset(p.X - sp.X - 122, (p.Y - sp.Y) + 12)
 				end
 				Stroke(pop, T2.Stroke, 1); Pad(pop, 6, 6, 6, 6)
-				New("UIListLayout", { Parent = pop, Padding = UDim.new(0, 4) })
-				local comps = {"R","G","B"}
-				for _, comp in ipairs(comps) do
-					local sl = New("Frame", { Parent = pop, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 22) }) :: Frame
-					local ll = Label(comp, 10, T2.Text) ll.Parent = sl
-					local track = New("TextButton", { Parent = sl, Text = "", AutoButtonColor = false,
-						BackgroundColor3 = T2.SliderTrack, BorderSizePixel = 0,
-						Position = UDim2.fromOffset(0, 12), Size = UDim2.new(1, 0, 0, 8) }) :: TextButton
-					local fill = New("Frame", { Parent = track, BackgroundColor3 = T2.Accent, BorderSizePixel = 0,
-						Size = UDim2.new(0, 0, 0, 2), Position = UDim2.new(0, 1, 0.5, -1) }) :: Frame
-					trackAccent(fill, "bg")
-						local knob = New("Frame", { Parent = track, BackgroundTransparency = 1,
-							Size = UDim2.fromOffset(5, 12), Position = UDim2.new(0, 0, 0.5, -6) }) :: Frame
-						New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
-							Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(5, 10) })
-						New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
-							Position = UDim2.fromOffset(1, 10), Size = UDim2.fromOffset(3, 1) })
-						New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
-							Position = UDim2.fromOffset(2, 11), Size = UDim2.fromOffset(1, 1) })
-					local function paint2()
-						local ch = string.format("%02X", math.floor(C.Value[comp] * 255 + 0.5))
-						ll.Text = comp .. " " .. ch
-						local f = C.Value[comp]
-						fill.Size = UDim2.new(f, -2, 0, 2)
-						knob.Position = UDim2.new(f, -2, 0.5, -6)
+				New("UIListLayout", { Parent = pop, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) })
+
+				local hue, sat, val = C.Value:ToHSV()
+				local savedH, savedS = hue, sat
+				local alpha: number = C.Alpha
+				local SV = 138
+
+				local function renderHue(): number
+					return if sat <= 0 then savedH else hue
+				end
+
+				-- SV square ------------------------------------------------
+				local svBase = New("Frame", { Parent = pop, BackgroundColor3 = Color3.fromHSV(renderHue(), 1, 1),
+					BorderSizePixel = 0, Size = UDim2.fromOffset(SV, SV), LayoutOrder = 1 }) :: Frame
+				local svWhite = New("Frame", { Parent = svBase, BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+					BorderSizePixel = 0, Size = UDim2.fromScale(1, 1) }) :: Frame
+				New("UIGradient", { Parent = svWhite, Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) }) })
+				local svBlack = New("Frame", { Parent = svBase, BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+					BorderSizePixel = 0, Size = UDim2.fromScale(1, 1) }) :: Frame
+				New("UIGradient", { Parent = svBlack, Rotation = 90, Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) }) })
+				Stroke(svBase, T2.BevelDark, 1)
+				local svCurO = New("Frame", { Parent = svBase, BackgroundColor3 = T2.BevelDark,
+					BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(7, 7) }) :: Frame
+				New("Frame", { Parent = svCurO, BackgroundColor3 = T2.TextStrong,
+					BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(5, 5) })
+
+				-- hue bar --------------------------------------------------
+				local hueBar = New("Frame", { Parent = pop, BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+					BorderSizePixel = 0, Size = UDim2.fromOffset(SV, 8), LayoutOrder = 2 }) :: Frame
+				New("UIGradient", { Parent = hueBar, Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+					ColorSequenceKeypoint.new(1 / 6, Color3.fromRGB(255, 255, 0)),
+					ColorSequenceKeypoint.new(2 / 6, Color3.fromRGB(0, 255, 0)),
+					ColorSequenceKeypoint.new(3 / 6, Color3.fromRGB(0, 255, 255)),
+					ColorSequenceKeypoint.new(4 / 6, Color3.fromRGB(0, 0, 255)),
+					ColorSequenceKeypoint.new(5 / 6, Color3.fromRGB(255, 0, 255)),
+					ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0)) }) })
+				Stroke(hueBar, T2.BevelDark, 1)
+				local hueHO = New("Frame", { Parent = hueBar, BackgroundColor3 = T2.BevelDark,
+					BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(4, 10) }) :: Frame
+				New("Frame", { Parent = hueHO, BackgroundColor3 = T2.TextStrong,
+					BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(2, 8) })
+
+				-- alpha bar (checkered transparency preview) ---------------
+				local alphaBar = New("Frame", { Parent = pop, BackgroundColor3 = Color3.fromRGB(200, 200, 200),
+					BorderSizePixel = 0, ClipsDescendants = true,
+					Size = UDim2.fromOffset(SV, 8), LayoutOrder = 3 }) :: Frame
+				do
+					local cell = 5
+					for yy = 0, 1 do
+						for xx = 0, 27 do
+							New("Frame", { Parent = alphaBar,
+								BackgroundColor3 = if (xx + yy) % 2 == 0
+									then Color3.fromRGB(200, 200, 200) else Color3.fromRGB(140, 140, 140),
+								BorderSizePixel = 0, Position = UDim2.fromOffset(xx * cell, yy * cell),
+								Size = UDim2.fromOffset(cell, cell) })
+						end
 					end
-					paint2()
-					track.InputBegan:Connect(function(inp)
+				end
+				local alphaGrad = New("Frame", { Parent = alphaBar, BackgroundColor3 = C.Value,
+					BorderSizePixel = 0, Size = UDim2.fromScale(1, 1) }) :: Frame
+				New("UIGradient", { Parent = alphaGrad, Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) }) })
+				Stroke(alphaBar, T2.BevelDark, 1)
+				local alphaHO = New("Frame", { Parent = alphaBar, BackgroundColor3 = T2.BevelDark,
+					BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(4, 10) }) :: Frame
+				New("Frame", { Parent = alphaHO, BackgroundColor3 = T2.TextStrong,
+					BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(2, 8) })
+
+				local function paint()
+					svBase.BackgroundColor3 = Color3.fromHSV(renderHue(), 1, 1)
+					svCurO.Position = UDim2.fromOffset(
+						math.clamp(sat * SV, 3, SV - 3), math.clamp((1 - val) * SV, 3, SV - 3))
+					hueHO.Position = UDim2.fromOffset(math.clamp(hue * SV, 2, SV - 2), 4)
+					alphaGrad.BackgroundColor3 = C.Value
+					alphaHO.Position = UDim2.fromOffset(math.clamp(alpha * SV, 2, SV - 2), 4)
+					refreshSwatch()
+				end
+				local function push()
+					C:Set(Color3.fromHSV(renderHue(), sat, val))
+					paint()
+				end
+				local function setAlpha(a: number)
+					alpha = math.clamp(a, 0, 1)
+					C:SetAlpha(alpha)
+					paint()
+				end
+
+				local function dragZone(btn: TextButton, fn: (Vector2) -> ())
+					btn.InputBegan:Connect(function(inp)
 						if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-							local function upd(p: Vector2)
-								local rel = math.clamp((p.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
-								local r, g, b = C.Value.R, C.Value.G, C.Value.B
-								if comp == "R" then r = rel elseif comp == "G" then g = rel else b = rel end
-								C:Set(Color3.new(r, g, b)); paint2()
-							end
-							upd(inp.Position)
+							fn(inp.Position)
 							local mv; mv = UserInputService.InputChanged:Connect(function(mm)
-								if mm.UserInputType == Enum.UserInputType.MouseMovement and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then upd(mm.Position) end
+								if mm.UserInputType == Enum.UserInputType.MouseMovement and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then fn(mm.Position) end
 							end)
 							UserInputService.InputEnded:Wait(); if mv then mv:Disconnect() end
 						end
 					end)
 				end
+				local svZone = New("TextButton", { Parent = svBase, BackgroundTransparency = 1, Text = "",
+					AutoButtonColor = false, Size = UDim2.fromScale(1, 1) }) :: TextButton
+				local hueZone = New("TextButton", { Parent = hueBar, BackgroundTransparency = 1, Text = "",
+					AutoButtonColor = false, Size = UDim2.fromScale(1, 1) }) :: TextButton
+				local alphaZone = New("TextButton", { Parent = alphaBar, BackgroundTransparency = 1, Text = "",
+					AutoButtonColor = false, Size = UDim2.fromScale(1, 1) }) :: TextButton
+				dragZone(svZone, function(p)
+					local sn = math.clamp((p.X - svBase.AbsolutePosition.X) / SV, 0, 1)
+					local vn = 1 - math.clamp((p.Y - svBase.AbsolutePosition.Y) / SV, 0, 1)
+					sat = sn; val = vn; savedS = sat
+					if sat <= 0 then hue = savedH end
+					if val <= 0 then sat = savedS end
+					push()
+				end)
+				dragZone(hueZone, function(p)
+					hue = math.min(math.clamp((p.X - hueBar.AbsolutePosition.X) / SV, 0, 1), 0.9999)
+					savedH = hue
+					push()
+				end)
+				dragZone(alphaZone, function(p)
+					setAlpha(math.clamp((p.X - alphaBar.AbsolutePosition.X) / SV, 0, 1))
+				end)
+				paint()
 			end)
 			return C
 		end
@@ -858,7 +962,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				local kflag, mflag = kb.Flag, kb.ModeFlag
 				if kflag and Chuddy.Flags[kflag] ~= nil then dKey = Chuddy.Flags[kflag] end
 				local pill = New("TextButton", { Parent = row, Text = "", AutoButtonColor = false,
-					BackgroundColor3 = T2.ControlBg, BorderSizePixel = 0,
+					BackgroundColor3 = T2.ControlBg, BorderSizePixel = 0, ZIndex = 3,
 					AnchorPoint = Vector2.new(1, 0.5), Size = UDim2.fromOffset(34, 13) }) :: TextButton
 				pill.Position = reserve(34)
 				Stroke(pill, T2.Stroke, 1)
@@ -1224,7 +1328,9 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			local v = Chuddy.Flags[k]
 			local t = Chuddy._flagTypes[k]
 			if t == "color" and typeof(v) == "Color3" then
-				table.insert(lines, string.format("%s=%.4f %.4f %.4f %.4f", k, v.R, v.G, v.B, 1))
+				local a = Chuddy.Flags[k .. "Alpha"]
+				if typeof(a) ~= "number" then a = 1 end
+				table.insert(lines, string.format("%s=%.4f %.4f %.4f %.4f", k, v.R, v.G, v.B, a))
 			elseif t == "float" and typeof(v) == "number" then
 				table.insert(lines, string.format("%s=%.4f", k, v))
 			elseif t == "int" and typeof(v) == "number" then
@@ -1258,9 +1364,15 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				elseif t == "float" then
 					Chuddy.Flags[k] = tonumber(payload) or 0
 				elseif t == "color" then
-					local r, g, b = string.match(payload, "([%d%.%-]+)%s+([%d%.%-]+)%s+([%d%.%-]+)")
+					local r, g, b, a = string.match(payload, "([%d%.%-]+)%s+([%d%.%-]+)%s+([%d%.%-]+)%s*([%d%.%-]*)")
 					if r and g and b then
 						Chuddy.Flags[k] = Color3.new(tonumber(r) or 0, tonumber(g) or 0, tonumber(b) or 0)
+						local aa = tonumber(a)
+						if aa ~= nil then
+							Chuddy.Flags[k .. "Alpha"] = math.clamp(aa, 0, 1)
+							local aset = Chuddy._flagSetters[k .. "Alpha"]
+							if aset then pcall(aset, Chuddy.Flags[k .. "Alpha"]) end
+						end
 					end
 				elseif t == "key" then
 					local okkc, kc = pcall(function() return (Enum.KeyCode :: any)[payload] end)

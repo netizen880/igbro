@@ -787,6 +787,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			local row = New("Frame", { Parent = box, BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 14) }) :: Frame
 			local lab = Label(text, 11, T2.Text)
+			lab.AutomaticSize = Enum.AutomaticSize.None
 			lab.Position = UDim2.fromOffset(0, 0); lab.Size = UDim2.new(1, -40, 1, 0)
 			lab.TextTruncate = Enum.TextTruncate.AtEnd; lab.Parent = row
 			local rightX = 0
@@ -887,6 +888,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(4.4, 7.2),
 				Size = UDim2.fromOffset(2.5, 2.5) }), "bg")
 			local lab = Label(text, 11, default and T2.TextStrong or T2.Text)
+			lab.AutomaticSize = Enum.AutomaticSize.None
 			lab.Position = UDim2.fromOffset(15, 0); lab.Size = UDim2.new(1, -40, 1, 0)
 			lab.TextTruncate = Enum.TextTruncate.AtEnd; lab.Parent = row
 
@@ -924,6 +926,8 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				pill.Position = reserve(34)
 				Stroke(pill, T2.Stroke, 1)
 				local pl = Label("-", 8, T2.TextStrong) pl.AnchorPoint = Vector2.new(0.5, 0.5)
+				pl.AutomaticSize = Enum.AutomaticSize.None; pl.Size = UDim2.fromScale(1, 1)
+				pl.TextXAlignment = Enum.TextXAlignment.Center; pl.TextTruncate = Enum.TextTruncate.AtEnd
 				pl.Position = UDim2.fromScale(0.5, 0.5); pl.Parent = pill
 				local K: any = { Key = dKey, Mode = dMode, Capturing = false }
 				local function paint()
@@ -979,6 +983,8 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				Stroke(b, T2.Stroke, 1)
 				local bl = Label(defaultOn and "ON" or "OFF", 7, defaultOn and T2.ToggleOn or T2.TextDisabled)
 				bl.AnchorPoint = Vector2.new(0.5, 0.5); bl.Position = UDim2.fromScale(0.5, 0.5); bl.Parent = b
+				bl.AutomaticSize = Enum.AutomaticSize.None; bl.Size = UDim2.fromScale(1, 1)
+				bl.TextXAlignment = Enum.TextXAlignment.Center; bl.TextTruncate = Enum.TextTruncate.AtEnd
 				local B: any = {}
 				function B:Set(on: boolean)
 					bl.Text = on and "ON" or "OFF"
@@ -1012,7 +1018,9 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			local unlimitedAtMax = opts2.UnlimitedAtMax
 
 			local wrap = New("Frame", { Parent = box, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26) }) :: Frame
-			local nameL = Label(text, 11, T2.TextStrong) nameL.Position = UDim2.fromOffset(0, 0) nameL.Parent = wrap
+			local nameL = Label(text, 11, T2.TextStrong) nameL.Position = UDim2.fromOffset(0, 0)
+			nameL.AutomaticSize = Enum.AutomaticSize.None; nameL.Size = UDim2.new(1, -56, 1, 0)
+			nameL.TextTruncate = Enum.TextTruncate.AtEnd; nameL.Parent = wrap
 			local valL = Label("", 11, T2.TextStrong) valL.AnchorPoint = Vector2.new(1, 0)
 			valL.Position = UDim2.new(1, 0, 0, 0) valL.Parent = wrap
 			local track = New("TextButton", { Parent = wrap, Text = "", AutoButtonColor = false,
@@ -1101,6 +1109,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			table.insert(droots, dd)
 			Stroke(dd, T2.Stroke, 1)
 			local cur = Label(items[default] or "", 11, T2.TextStrong)
+			cur.AutomaticSize = Enum.AutomaticSize.None
 			cur.Position = UDim2.fromOffset(5, 0); cur.Size = UDim2.new(1, -20, 1, 0)
 			cur.TextTruncate = Enum.TextTruncate.AtEnd; cur.Parent = dd
 			local arrow = Label("▼", 8, T2.TextDisabled)
@@ -1132,6 +1141,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 					local it = New("TextButton", { Parent = pop, Text = "", AutoButtonColor = false,
 						BackgroundColor3 = T2.ListEven, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 13) }) :: TextButton
 					local il = Label(name, 11, if i == D.Index then T2.Accent else T2.Text)
+					il.AutomaticSize = Enum.AutomaticSize.None
 					il.Position = UDim2.fromOffset(5, 0); il.Size = UDim2.new(1, -10, 1, 0)
 					il.TextTruncate = Enum.TextTruncate.AtEnd; il.Parent = it
 					it.MouseEnter:Connect(function() il.TextColor3 = T2.Accent end)
@@ -1163,6 +1173,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			local row = New("Frame", { Parent = box, BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 14) }) :: Frame
 			local lab = Label(text, 11, T2.Text)
+			lab.AutomaticSize = Enum.AutomaticSize.None
 			lab.Position = UDim2.fromOffset(0, 0); lab.Size = UDim2.new(1, -44, 1, 0)
 			lab.TextTruncate = Enum.TextTruncate.AtEnd; lab.Parent = row
 			local pill = New("TextButton", { Parent = row, Text = "", AutoButtonColor = false,
@@ -1171,6 +1182,8 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				Size = UDim2.fromOffset(34, 13) }) :: TextButton
 			Stroke(pill, T2.Stroke, 1)
 			local pl = Label("-", 8, T2.TextStrong) pl.AnchorPoint = Vector2.new(0.5, 0.5)
+			pl.AutomaticSize = Enum.AutomaticSize.None; pl.Size = UDim2.fromScale(1, 1)
+			pl.TextXAlignment = Enum.TextXAlignment.Center; pl.TextTruncate = Enum.TextTruncate.AtEnd
 			pl.Position = UDim2.fromScale(0.5, 0.5); pl.Parent = pill
 			local K: any = { Key = dKey, Mode = dMode, State = false, Capturing = false }
 			local function paint()

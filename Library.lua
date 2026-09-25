@@ -26,6 +26,7 @@ Chuddy._flagDefaults = {} :: any
 Chuddy._flagTypes = {} :: any
 Chuddy._flagSetters = {} :: any
 Chuddy._flagOrder = {} :: any
+Chuddy._windows = {} :: any
 
 --// Theme (1:1 from style.hpp) --------------------------------------------
 Chuddy.Theme = {
@@ -151,8 +152,23 @@ function Chuddy:SetAccent(c: Color3)
 	t.AccentDim = Color3.new(c.R * 0.47, c.G * 0.47, c.B * 0.47)
 	t.AccentBarDark = Color3.new(c.R * 0.31, c.G * 0.31, c.B * 0.31)
 	for _, e in ipairs(Chuddy._accentRegistry) do
-		if e.Kind == "bg" then (e.Inst :: GuiObject).BackgroundColor3 = c
-		elseif e.Kind == "text" then (e.Inst :: TextLabel).TextColor3 = c end
+		local inst = e.Inst :: GuiObject
+		if e.Kind == "bg" then inst.BackgroundColor3 = t.Accent
+		elseif e.Kind == "accentBar" then inst.BackgroundColor3 = t.AccentBar
+		elseif e.Kind == "accentBarDark" then inst.BackgroundColor3 = t.AccentBarDark
+		elseif e.Kind == "accentBarBright" then inst.BackgroundColor3 = t.AccentBarBright
+		elseif e.Kind == "text" then (inst :: TextLabel).TextColor3 = t.Accent end
+	end
+	-- active tab labels are managed per-tab (not tracked); refresh them here
+	for _, W in ipairs(Chuddy._windows) do
+		for _, tb in ipairs(W.Tabs) do
+			if tb.Page.Visible then tb.Label.TextColor3 = t.Accent end
+		end
+		for _, bar in ipairs(W._subBars or {}) do
+			for i, pg in ipairs(bar._pages) do
+				if pg.Visible then bar._buttons[i].Label.TextColor3 = t.Accent end
+			end
+		end
 	end
 end
 
@@ -214,8 +230,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 	local title2 = opts.Title2 or "vision"
 	local title3 = opts.Title3 or ".net"
 	local toggleKey = opts.ToggleKey or Enum.KeyCode.Insert
-	local searchEnabled = opts.SearchEnabled
-	if searchEnabled == nil then searchEnabled = false end
 
 	local guiParent: Instance
 	do
@@ -283,24 +297,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 	local t3 = Label(title3, 10, T.TitleText) t3.Font = Chuddy.FontBold
 	t3.Position = UDim2.fromOffset(6 + w1 + w2, 2) t3.Parent = titleRow
 
-	-- searchEnabled mirrors ksd::searchEnabled (Config page toggles visibility)
-	local searchBox: TextBox = New("TextBox", {
-		Parent = titleRow,
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -6, 0, 2),
-		Size = UDim2.fromOffset(110, 14),
-		BackgroundColor3 = T.CheckboxBg,
-		TextColor3 = T.Text,
-		PlaceholderText = "search",
-		PlaceholderColor3 = T.TextDisabled,
-		Font = Chuddy.FontBody, TextSize = 11,
-		Text = "", ClearTextOnFocus = false,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Visible = searchEnabled,
-	}) :: TextBox
-	Pad(searchBox, 4, 0, 0, 0)
-	Stroke(searchBox, T.Stroke, 1)
-
 	-- tab row (tabs render above the baseline; see underline below) ------------
 	local tabRow = New("Frame", {
 		Parent = header, BackgroundTransparency = 1,
@@ -335,10 +331,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			local mp = input.Position
 			local tp, ts = titleRow.AbsolutePosition, titleRow.AbsoluteSize
 			if mp.X < tp.X or mp.X > tp.X + ts.X or mp.Y < tp.Y or mp.Y > tp.Y + ts.Y then return end
-			if searchBox and searchBox.Visible then
-				local sp, ss = searchBox.AbsolutePosition, searchBox.AbsoluteSize
-				if mp.X >= sp.X and mp.X <= sp.X + ss.X and mp.Y >= sp.Y and mp.Y <= sp.Y + ss.Y then return end
-			end
 			dragging = true
 			dragStart = mp
 			startPos = main.Position
@@ -363,6 +355,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 	Window.Main = main
 	Window.Tabs = {}
 	Window._searchables = {} -- {Frame, Keys:string}
+	Window._subBars = {} :: any
 	Window._current = nil
 
 	function Window:ToggleVisible()
@@ -377,31 +370,12 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		end
 		(u :: UIScale).Scale = s
 	end
-	-- config.cpp "Enable search" checkbox
-	function Window:SetSearchEnabled(on: boolean)
-		if searchBox then
-			if not on then searchBox.Text = "" end
-			searchBox.Visible = on
-		end
-	end
 	UserInputService.InputBegan:Connect(function(input, gpe)
 		if gpe then return end
 		if input.KeyCode == toggleKey then
 			screen.Enabled = not screen.Enabled
 		end
 	end)
-
-	if searchBox then
-		searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-			local q = string.lower(searchBox.Text)
-			for _, s in ipairs(Window._searchables) do
-				if q == "" then (s.Frame :: GuiObject).Visible = true
-				else
-					(s.Frame :: GuiObject).Visible = string.find(string.lower(s.Keys), q, 1, true) ~= nil
-				end
-			end
-		end)
-	end
 
 	function Window:_registerSearchable(frame: GuiObject, keys: string)
 		table.insert(self._searchables, { Frame = frame, Keys = keys })
@@ -425,10 +399,13 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		-- active cap: 3 stacked 1px bars above button
 		local capDark = New("Frame", { Parent = btn, BackgroundColor3 = T.AccentBarDark, BorderSizePixel = 0,
 			Position = UDim2.fromOffset(3, -3), Size = UDim2.new(1, -6, 0, 1), Visible = isActive }) :: Frame
+		trackAccent(capDark, "accentBarDark")
 		local capMid = New("Frame", { Parent = btn, BackgroundColor3 = T.AccentBar, BorderSizePixel = 0,
 			Position = UDim2.fromOffset(2, -2), Size = UDim2.new(1, -4, 0, 1), Visible = isActive }) :: Frame
+		trackAccent(capMid, "accentBar")
 		local capTop = New("Frame", { Parent = btn, BackgroundColor3 = T.AccentBarBright, BorderSizePixel = 0,
 			Position = UDim2.fromOffset(1, -1), Size = UDim2.new(1, -2, 0, 1), Visible = isActive }) :: Frame
+		trackAccent(capTop, "accentBarBright")
 		-- tab.cpp edges: top highlight when active, tabBorder left, windowBorder right
 		local edgeTop = New("Frame", { Parent = btn, BackgroundColor3 = if isActive then T.TabHighlight else T.TabBorder,
 			BorderSizePixel = 0, Position = UDim2.fromOffset(0, 0), Size = UDim2.new(1, 0, 0, 1) }) :: Frame
@@ -562,6 +539,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			function Bar:AddGroupbox(pg: Frame, title: string, heightPx: number?, widthScale: number?): any
 				return Tab._window:_addGroupbox(pg, title, heightPx, widthScale)
 			end
+			table.insert(Tab._window._subBars, Bar)
 			return Bar
 		end
 
@@ -705,10 +683,11 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 						local knob = New("Frame", { Parent = track, BackgroundTransparency = 1,
 							Size = UDim2.fromOffset(5, 12), Position = UDim2.new(0, 0, 0.5, -6) }) :: Frame
 						New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
-							Size = UDim2.fromOffset(3, 3), AnchorPoint = Vector2.new(0.5, 0.5),
-							Position = UDim2.new(0, 2.5, 0, 10), Rotation = 45 })
-						New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
 							Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(5, 10) })
+						New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
+							Position = UDim2.fromOffset(1, 10), Size = UDim2.fromOffset(3, 1) })
+						New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
+							Position = UDim2.fromOffset(2, 11), Size = UDim2.fromOffset(1, 1) })
 					local function paint2()
 						local ch = string.format("%02X", math.floor(C.Value[comp] * 255 + 0.5))
 						ll.Text = comp .. " " .. ch
@@ -839,8 +818,12 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				Size = UDim2.fromScale(1, 1), Visible = default,
 			}) :: Frame
 			-- checkbox.cpp PathStroke tick: (0.22,0.50) -> (0.44,0.72) -> (0.80,0.24)
-			trackAccent(DrawLine(checkG, 2.2, 5.2, 4.4, 7.2, 2, T2.Accent), "bg")
-			trackAccent(DrawLine(checkG, 4.4, 7.2, 8.0, 2.6, 2, T2.Accent), "bg")
+			trackAccent(DrawLine(checkG, 2.2, 5.0, 4.4, 7.2, 2, T2.Accent), "bg")
+			trackAccent(DrawLine(checkG, 4.4, 7.2, 8.0, 2.4, 2, T2.Accent), "bg")
+			-- joint fill (PathStroke miter equivalent, kills the elbow notch)
+			trackAccent(New("Frame", { Parent = checkG, BackgroundColor3 = T2.Accent, BorderSizePixel = 0,
+				AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(4.4, 7.2),
+				Size = UDim2.fromOffset(2.5, 2.5) }), "bg")
 			local lab = Label(text, 11, default and T2.TextStrong or T2.Text)
 			lab.Position = UDim2.fromOffset(15, 0); lab.Size = UDim2.new(1, -40, 1, 0)
 			lab.TextTruncate = Enum.TextTruncate.AtEnd; lab.Parent = row
@@ -933,7 +916,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 					AnchorPoint = Vector2.new(1, 0.5), Size = UDim2.fromOffset(28, 12) }) :: Frame
 				b.Position = reserve(28)
 				Stroke(b, T2.Stroke, 1)
-				local bl = Label(defaultOn and "ON" or "OFF", 8, defaultOn and T2.ToggleOn or T2.TextDisabled)
+				local bl = Label(defaultOn and "ON" or "OFF", 7, defaultOn and T2.ToggleOn or T2.TextDisabled)
 				bl.AnchorPoint = Vector2.new(0.5, 0.5); bl.Position = UDim2.fromScale(0.5, 0.5); bl.Parent = b
 				local B: any = {}
 				function B:Set(on: boolean)
@@ -981,15 +964,16 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			local fill = New("Frame", { Parent = track, BackgroundColor3 = T2.Accent, BorderSizePixel = 0,
 				Position = UDim2.new(0, 1, 0.5, -1), Size = UDim2.new(0, 0, 0, 2) }) :: Frame
 			trackAccent(fill, "bg")
-			-- slider.cpp pentagon knob: 5x10 rect + 2px point (3x3 diamond
-			-- tucked behind: vertices stay inside the 5px body width)
+			-- slider.cpp pentagon knob: 5x10 rect + 2px stepped point
+			-- (pixel-crisp, no rotation blur at this size)
 			local knob = New("Frame", { Parent = track, BackgroundTransparency = 1,
 				Size = UDim2.fromOffset(5, 12), Position = UDim2.new(0, 0, 0.5, -6) }) :: Frame
 			New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
-				Size = UDim2.fromOffset(3, 3), AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.new(0, 2.5, 0, 10), Rotation = 45 })
-			New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
 				Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(5, 10) })
+			New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
+				Position = UDim2.fromOffset(1, 10), Size = UDim2.fromOffset(3, 1) })
+			New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
+				Position = UDim2.fromOffset(2, 11), Size = UDim2.fromOffset(1, 1) })
 
 			local S: any = { Value = default }
 			local function fmt(v: number): string
@@ -1145,8 +1129,11 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 						BorderSizePixel = 0, Position = UDim2.fromOffset(4, 2), Size = UDim2.fromOffset(10, 10) }) :: Frame
 					local tick = New("Frame", { Parent = cbox, BackgroundTransparency = 1,
 						Size = UDim2.fromScale(1, 1), Visible = L.Checked[i] == true }) :: Frame
-					trackAccent(DrawLine(tick, 2.2, 5.2, 4.4, 7.2, 2, T2.Accent), "bg")
-					trackAccent(DrawLine(tick, 4.4, 7.2, 8.0, 2.6, 2, T2.Accent), "bg")
+					trackAccent(DrawLine(tick, 2.2, 5.0, 4.4, 7.2, 2, T2.Accent), "bg")
+					trackAccent(DrawLine(tick, 4.4, 7.2, 8.0, 2.4, 2, T2.Accent), "bg")
+					trackAccent(New("Frame", { Parent = tick, BackgroundColor3 = T2.Accent, BorderSizePixel = 0,
+						AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(4.4, 7.2),
+						Size = UDim2.fromOffset(2.5, 2.5) }), "bg")
 					row.Tick = tick
 					labelX = 19
 				end
@@ -1294,6 +1281,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		screen:Destroy()
 	end
 
+	table.insert(Chuddy._windows, Window)
 	return Window
 end
 

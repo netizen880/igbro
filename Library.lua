@@ -253,6 +253,14 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 
 	local TITLE_H, TAB_H = 18, 15
 
+	-- baseline lives UNDER the header in tree order so the active tab's
+	-- 1px foot (tab.cpp bb.Max.y + 1) renders over it, fusing tab to content
+	local underline = New("Frame", {
+		Parent = main, BackgroundColor3 = T.Stroke, BorderSizePixel = 0,
+		Position = UDim2.fromOffset(6, TITLE_H + TAB_H),
+		Size = UDim2.new(1, -12, 0, 1),
+	}) :: Frame
+
 	-- header ----------------------------------------------------------------
 	local header = New("Frame", {
 		Parent = main, BackgroundColor3 = T.HeaderBg, BorderSizePixel = 0,
@@ -293,7 +301,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 	Pad(searchBox, 4, 0, 0, 0)
 	Stroke(searchBox, T.Stroke, 1)
 
-	-- tab row + underline ----------------------------------------------------
+	-- tab row (tabs render above the baseline; see underline below) ------------
 	local tabRow = New("Frame", {
 		Parent = header, BackgroundTransparency = 1,
 		Position = UDim2.fromOffset(0, TITLE_H),
@@ -305,12 +313,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		VerticalAlignment = Enum.VerticalAlignment.Bottom,
 	})
 	Pad(tabRow, 6, 0, 6, 0)
-
-	local underline = New("Frame", {
-		Parent = main, BackgroundColor3 = T.Stroke, BorderSizePixel = 0,
-		Position = UDim2.fromOffset(6, TITLE_H + TAB_H),
-		Size = UDim2.new(1, -12, 0, 1), ZIndex = 5,
-	}) :: Frame
 
 	-- content well ------------------------------------------------------------
 	local content = New("Frame", {
@@ -434,7 +436,10 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			Position = UDim2.fromOffset(0, 0), Size = UDim2.new(0, 1, 1, 0) })
 		New("Frame", { Parent = btn, BackgroundColor3 = T.WindowBorder, BorderSizePixel = 0,
 			AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Size = UDim2.new(0, 1, 1, 0) })
-		return { Btn = btn, Label = lbl, Cap = {capDark, capMid, capTop}, EdgeTop = edgeTop }
+		-- tab.cpp: active fill extends 1px below into the baseline (bb.Max.y + 1)
+		local foot = New("Frame", { Parent = btn, BackgroundColor3 = T.WindowBg, BorderSizePixel = 0,
+			Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 1), Visible = isActive }) :: Frame
+		return { Btn = btn, Label = lbl, Cap = {capDark, capMid, capTop}, EdgeTop = edgeTop, Foot = foot }
 	end
 
 	-- Tabs ------------------------------------------------------------------
@@ -446,6 +451,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		local btn, lbl = parts.Btn, parts.Label
 		local capDark, capMid, capTop = parts.Cap[1], parts.Cap[2], parts.Cap[3]
 		local edgeTop = parts.EdgeTop
+		local foot = parts.Foot
 
 		local page = New("ScrollingFrame", {
 			Parent = content, BackgroundTransparency = 1,
@@ -514,15 +520,16 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			else holder.Size = UDim2.new(0.5, -3, 0, 0) end
 			holder.AutomaticSize = Enum.AutomaticSize.Y
 			New("UIListLayout", { Parent = holder, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 0) })
-			-- kCapReserve 3px above strip, 15px strip, stroke baseline, 5px gap to content
-			New("Frame", { Parent = holder, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 3) })
-			local strip = New("Frame", { Parent = holder, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 15) }) :: Frame
+			-- kCapReserve 3px above strip, 15px strip, stroke baseline, 5px gap to content.
+			-- Baseline is created BEFORE the strip so sub-tab feet paint over it.
+			New("Frame", { Parent = holder, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 3), LayoutOrder = 1 })
+			New("Frame", { Parent = holder, BackgroundColor3 = T.Stroke, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 1), LayoutOrder = 3 })
+			local strip = New("Frame", { Parent = holder, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 15), LayoutOrder = 2 }) :: Frame
 			New("UIListLayout", { Parent = strip, FillDirection = Enum.FillDirection.Horizontal,
 				Padding = UDim.new(0, 0), SortOrder = Enum.SortOrder.LayoutOrder,
 				VerticalAlignment = Enum.VerticalAlignment.Bottom })
-			New("Frame", { Parent = holder, BackgroundColor3 = T.Stroke, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 1) })
 			local contentH = New("Frame", { Parent = holder, BackgroundTransparency = 1,
-				Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y }) :: Frame
+				Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 4 }) :: Frame
 			Pad(contentH, 0, 5, 0, 0)
 
 			local Bar: any = { _pages = {}, _buttons = {} }
@@ -545,6 +552,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 						local on = Bar._pages[i] == pg
 						Bar._pages[i].Visible = on
 						p2.Cap[1].Visible = on; p2.Cap[2].Visible = on; p2.Cap[3].Visible = on
+						p2.Foot.Visible = on
 						p2.EdgeTop.BackgroundColor3 = on and T.TabHighlight or T.TabBorder
 						p2.Label.TextColor3 = on and T.Accent or T.TextStrong
 					end
@@ -562,6 +570,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				local active = tb.Tab == Tab
 				tb.Page.Visible = active
 				tb.Cap[1].Visible = active; tb.Cap[2].Visible = active; tb.Cap[3].Visible = active
+				tb.Foot.Visible = active
 				tb.EdgeTop.BackgroundColor3 = active and T.TabHighlight or T.TabBorder
 				-- untrack trick: keep accent only for active label
 				if active then tb.Label.TextColor3 = T.Accent else tb.Label.TextColor3 = T.TextStrong end
@@ -573,7 +582,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			if Chuddy._accentRegistry[i].Inst == lbl then table.remove(Chuddy._accentRegistry, i) end
 		end
 
-		table.insert(self.Tabs, { Tab = Tab, Page = page, Label = lbl, Cap = {capDark, capMid, capTop}, EdgeTop = edgeTop })
+		table.insert(self.Tabs, { Tab = Tab, Page = page, Label = lbl, Cap = {capDark, capMid, capTop}, EdgeTop = edgeTop, Foot = foot })
 		if isActive then refreshTabs() end
 		return Tab
 	end

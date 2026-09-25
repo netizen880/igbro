@@ -1,14 +1,3 @@
---[[--------------------------------------------------------------------
-    chudvision.net  ->  Roblox Lua port ("ChuddyLib")
-    Original: ImGui-Chudvision-Framework (C++ / Dear ImGui) by KingsleydotDev
-    Port: pure Luau, no dependencies. Drawing + behavior cloned from:
-      style/style.hpp, gui/gui.cpp, framework/{checkbox,slider,combo,
-      button,groupbox,tab,bind,colorswatch,list,badge,search,layout}.cpp
-
-    Usage:
-      local Chuddy = loadstring(game:HttpGet(".../Library.lua"))()
-      -- or: local Chuddy = require(path.Library)
---------------------------------------------------------------------]]
 --!strict
 
 local Players = game:GetService("Players")
@@ -21,14 +10,13 @@ local LocalPlayer = Players.LocalPlayer
 local Chuddy = {}
 Chuddy.__index = Chuddy
 Chuddy.Flags = {} :: any
-Chuddy._accentRegistry = {} :: any -- { [instance] = "bg" | "text" | "stroke" }
+Chuddy._accentRegistry = {} :: any
 Chuddy._flagDefaults = {} :: any
 Chuddy._flagTypes = {} :: any
 Chuddy._flagSetters = {} :: any
 Chuddy._flagOrder = {} :: any
 Chuddy._windows = {} :: any
 
---// Theme (1:1 from style.hpp) --------------------------------------------
 Chuddy.Theme = {
 	Accent         = Color3.fromRGB(240, 110, 30),
 	AccentDim      = Color3.fromRGB(110, 52, 16),
@@ -66,19 +54,16 @@ Chuddy.Theme = {
 Chuddy.FontBody = Enum.Font.Arial
 Chuddy.FontBold = Enum.Font.ArialBold
 
--- bind.hpp: BindMode_Toggle = 0, BindMode_Hold = 1, BindMode_Always = 2
 Chuddy.BindMode = { Toggle = 0, Hold = 1, Always = 2 }
 
---// small helpers ----------------------------------------------------------
 local function New(className: string, props: any?, children: any?): Instance
 	local inst = Instance.new(className)
 	if props then
 		for k, v in pairs(props) do
 			if k ~= "Parent" then
-				local ok = pcall(function()
+				pcall(function()
 					(inst :: any)[k] = v
 				end)
-				if not ok then warn("[Chuddy] bad prop " .. tostring(k)) end
 			end
 		end
 	end
@@ -111,7 +96,6 @@ local function Pad(parent: Instance, l: number?, t: number?, r: number?, b: numb
 	}) :: UIPadding
 end
 
--- thin rotated line segment (checkbox ticks, C++ PathStroke equivalent)
 local function DrawLine(parent: Instance, x1: number, y1: number, x2: number, y2: number, thick: number, color: Color3): Frame
 	local dx, dy = x2 - x1, y2 - y1
 	local len = math.sqrt(dx * dx + dy * dy)
@@ -159,7 +143,7 @@ function Chuddy:SetAccent(c: Color3)
 		elseif e.Kind == "accentBarBright" then inst.BackgroundColor3 = t.AccentBarBright
 		elseif e.Kind == "text" then (inst :: TextLabel).TextColor3 = t.Accent end
 	end
-	-- active tab labels are managed per-tab (not tracked); refresh them here
+
 	for _, W in ipairs(Chuddy._windows) do
 		for _, tb in ipairs(W.Tabs) do
 			if tb.Page.Visible then tb.Label.TextColor3 = t.Accent end
@@ -182,14 +166,12 @@ function Chuddy:RegisterFlag(flag: string, default: any, setter: (any)->())
 	end
 end
 
--- config.hpp VarType equivalent for the INI name=value format
 function Chuddy:FlagType(flag: string, t: string)
 	if flag and flag ~= "" and Chuddy._flagTypes[flag] == nil then
 		Chuddy._flagTypes[flag] = t
 	end
 end
 
--- key name helper (mirrors bind.cpp KeyLabel) ------------------------------
 local KeyNames: any = {}
 for _, kc in ipairs(Enum.KeyCode:GetEnumItems()) do
 	KeyNames[kc] = kc.Name
@@ -205,11 +187,10 @@ local function KeyLabel(key: Enum.KeyCode?): string
 		RightAlt = "RAlt", LeftAlt = "LAlt",
 	}
 	if short[n] then return short[n] end
-	-- compact: "MouseButton1" checks are UserInputType, handled by caller
+
 	return n
 end
 
---// Window -----------------------------------------------------------------
 export type WindowOpts = {
 	Title1: string?,
 	Title2: string?,
@@ -229,7 +210,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 	local title1 = opts.Title1 or "chud"
 	local title2 = opts.Title2 or "vision"
 	local title3 = opts.Title3 or ".net"
-	local toggleKey = opts.ToggleKey or Enum.KeyCode.Insert
+	local toggleKeyRef = { Key = opts.ToggleKey or Enum.KeyCode.Insert }
 
 	local guiParent: Instance
 	do
@@ -267,15 +248,12 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 
 	local TITLE_H, TAB_H = 18, 15
 
-	-- baseline lives UNDER the header in tree order so the active tab's
-	-- 1px foot (tab.cpp bb.Max.y + 1) renders over it, fusing tab to content
 	local underline = New("Frame", {
 		Parent = main, BackgroundColor3 = T.Stroke, BorderSizePixel = 0,
 		Position = UDim2.fromOffset(6, TITLE_H + TAB_H),
 		Size = UDim2.new(1, -12, 0, 1),
 	}) :: Frame
 
-	-- header ----------------------------------------------------------------
 	local header = New("Frame", {
 		Parent = main, BackgroundColor3 = T.HeaderBg, BorderSizePixel = 0,
 		Size = UDim2.new(1, 0, 0, TITLE_H + TAB_H), Active = true,
@@ -288,7 +266,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 
 	local t1 = Label(title1, 10, T.TitleText) t1.Font = Chuddy.FontBold
 	t1.Position = UDim2.fromOffset(6, 2) t1.Parent = titleRow
-	-- measure to chain vision + .net
+
 	local w1 = TextService:GetTextSize(title1, 10, Chuddy.FontBold, Vector2.new(500, 20)).X
 	local t2 = Label(title2, 10, T.Accent) t2.Font = Chuddy.FontBold
 	t2.Position = UDim2.fromOffset(6 + w1, 2) t2.Parent = titleRow
@@ -297,7 +275,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 	local t3 = Label(title3, 10, T.TitleText) t3.Font = Chuddy.FontBold
 	t3.Position = UDim2.fromOffset(6 + w1 + w2, 2) t3.Parent = titleRow
 
-	-- tab row (tabs render above the baseline; see underline below) ------------
 	local tabRow = New("Frame", {
 		Parent = header, BackgroundTransparency = 1,
 		Position = UDim2.fromOffset(0, TITLE_H),
@@ -310,7 +287,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 	})
 	Pad(tabRow, 6, 0, 6, 0)
 
-	-- content well ------------------------------------------------------------
 	local content = New("Frame", {
 		Parent = main, BackgroundColor3 = T.PanelBg, BorderSizePixel = 0,
 		Position = UDim2.fromOffset(6, TITLE_H + TAB_H + 1),
@@ -318,9 +294,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 	}) :: Frame
 	Stroke(content, T.TabBorder, 1)
 
-	-- drag (title strip) ------------------------------------------------------
-	-- Uses global UserInputService hit-testing instead of per-frame InputBegan,
-	-- so dragging works no matter which child is under the cursor.
 	do
 		local dragging = false
 		local dragStart: Vector2 = Vector2.zero
@@ -354,14 +327,17 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 	Window.Gui = screen
 	Window.Main = main
 	Window.Tabs = {}
-	Window._searchables = {} -- {Frame, Keys:string}
+	Window._searchables = {}
 	Window._subBars = {} :: any
 	Window._current = nil
 
 	function Window:ToggleVisible()
 		screen.Enabled = not screen.Enabled
 	end
-	-- config.cpp Menu scale combo
+	function Window:SetToggleKey(key: Enum.KeyCode?)
+		toggleKeyRef.Key = key
+	end
+
 	function Window:SetScale(s: number)
 		self._scale = s
 		local u = self.Main:FindFirstChildOfClass("UIScale")
@@ -372,7 +348,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 	end
 	UserInputService.InputBegan:Connect(function(input, gpe)
 		if gpe then return end
-		if input.KeyCode == toggleKey then
+		if toggleKeyRef.Key ~= nil and input.KeyCode == toggleKeyRef.Key then
 			screen.Enabled = not screen.Enabled
 		end
 	end)
@@ -381,7 +357,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		table.insert(self._searchables, { Frame = frame, Keys = keys })
 	end
 
-	-- mirrors tab.cpp TopTab (default padX = 5)
 	local function buildTopTab(parent: Frame, tname: string, isActive: boolean, order: number, heightY: UDim): any
 		local tw = TextService:GetTextSize(tname, 11, Chuddy.FontBody, Vector2.new(1000, 20)).X
 		local btn = New("TextButton", {
@@ -396,7 +371,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		lbl.Size = UDim2.new(1, -5, 1, 0)
 		lbl.Parent = btn
 		trackAccent(lbl, "text")
-		-- active cap: 3 stacked 1px bars above button
+
 		local capDark = New("Frame", { Parent = btn, BackgroundColor3 = T.AccentBarDark, BorderSizePixel = 0,
 			Position = UDim2.fromOffset(3, -3), Size = UDim2.new(1, -6, 0, 1), Visible = isActive }) :: Frame
 		trackAccent(capDark, "accentBarDark")
@@ -406,20 +381,19 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		local capTop = New("Frame", { Parent = btn, BackgroundColor3 = T.AccentBarBright, BorderSizePixel = 0,
 			Position = UDim2.fromOffset(1, -1), Size = UDim2.new(1, -2, 0, 1), Visible = isActive }) :: Frame
 		trackAccent(capTop, "accentBarBright")
-		-- tab.cpp edges: top highlight when active, tabBorder left, windowBorder right
+
 		local edgeTop = New("Frame", { Parent = btn, BackgroundColor3 = if isActive then T.TabHighlight else T.TabBorder,
 			BorderSizePixel = 0, Position = UDim2.fromOffset(0, 0), Size = UDim2.new(1, 0, 0, 1) }) :: Frame
 		New("Frame", { Parent = btn, BackgroundColor3 = T.TabBorder, BorderSizePixel = 0,
 			Position = UDim2.fromOffset(0, 0), Size = UDim2.new(0, 1, 1, 0) })
 		New("Frame", { Parent = btn, BackgroundColor3 = T.WindowBorder, BorderSizePixel = 0,
 			AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Size = UDim2.new(0, 1, 1, 0) })
-		-- tab.cpp: active fill extends 1px below into the baseline (bb.Max.y + 1)
+
 		local foot = New("Frame", { Parent = btn, BackgroundColor3 = T.WindowBg, BorderSizePixel = 0,
 			Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 1), Visible = isActive }) :: Frame
 		return { Btn = btn, Label = lbl, Cap = {capDark, capMid, capTop}, EdgeTop = edgeTop, Foot = foot }
 	end
 
-	-- Tabs ------------------------------------------------------------------
 	function Window:AddTab(name: string): any
 		local order = #self.Tabs + 1
 		local isActive = order == 1
@@ -469,11 +443,10 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			function Col:AddGroupbox(title: string, heightPx: number?): any
 				return Tab._window:_addGroupbox(col, title, heightPx)
 			end
-			-- sugar: column:AddCheckbox(...) creates an implicit group-less stack?
+
 			return Col
 		end
 
-		-- convenience: two-column default like the C++ pages
 		function Tab:AddLeftGroupbox(title: string): any
 			if #self._columns == 0 then self:CreateColumn(0.5) self:CreateColumn(nil) end
 			return Tab._window:_addGroupbox(self._columns[1], title)
@@ -488,7 +461,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			return Tab._window:_addGroupbox(self._columns[1], title)
 		end
 
-		-- mirrors tabbar.cpp BeginTabBar/BeginTabItem (ESP page inner tabs)
 		function Tab:CreateSubTabBar(ratio: number?): any
 			local idx = 0
 			for _, _ in ipairs(page:GetChildren()) do idx += 1 end
@@ -497,8 +469,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			else holder.Size = UDim2.new(0.5, -3, 0, 0) end
 			holder.AutomaticSize = Enum.AutomaticSize.Y
 			New("UIListLayout", { Parent = holder, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 0) })
-			-- kCapReserve 3px above strip, 15px strip, stroke baseline, 5px gap to content.
-			-- Baseline is created BEFORE the strip so sub-tab feet paint over it.
+
 			New("Frame", { Parent = holder, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 3), LayoutOrder = 1 })
 			New("Frame", { Parent = holder, BackgroundColor3 = T.Stroke, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 1), LayoutOrder = 3 })
 			local strip = New("Frame", { Parent = holder, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 15), LayoutOrder = 2 }) :: Frame
@@ -550,12 +521,12 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				tb.Cap[1].Visible = active; tb.Cap[2].Visible = active; tb.Cap[3].Visible = active
 				tb.Foot.Visible = active
 				tb.EdgeTop.BackgroundColor3 = active and T.TabHighlight or T.TabBorder
-				-- untrack trick: keep accent only for active label
+
 				if active then tb.Label.TextColor3 = T.Accent else tb.Label.TextColor3 = T.TextStrong end
 			end
 		end
 		btn.MouseButton1Click:Connect(refreshTabs)
-		-- keep label refs (strip generic accent tracking for tab labels)
+
 		for i = #Chuddy._accentRegistry, 1, -1 do
 			if Chuddy._accentRegistry[i].Inst == lbl then table.remove(Chuddy._accentRegistry, i) end
 		end
@@ -565,7 +536,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		return Tab
 	end
 
-	--// Groupbox (mirrors groupbox.cpp) -------------------------------------
 	function Window:_addGroupbox(column: Frame, title: string, heightPx: number?, widthScale: number?): any
 		local T2 = Chuddy.Theme
 		local holder = New("Frame", {
@@ -592,7 +562,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		Pad(box, 9, 8, 9, 6)
 		New("UIListLayout", { Parent = box, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2) })
 
-		-- caption chip overlapping border (windowBg behind text)
 		local chip = New("Frame", {
 			Parent = holder, BackgroundColor3 = T2.WindowBg, BorderSizePixel = 0,
 			Position = UDim2.fromOffset(3, 0), Size = UDim2.fromOffset(10, 12),
@@ -606,18 +575,18 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		Group._window = self
 		Group._indent = 0
 		Group._captionLabel = caption
-		-- players.cpp: right groupbox is re-titled with the selected player name
+
 		function Group:SetTitle(t: string)
 			(Group._captionLabel :: TextLabel).Text = t
 		end
-		-- layout.cpp Indent/Unindent (8px step)
+
 		function Group:Indent()
 			Group._indent = math.min((Group._indent or 0) + 8, 64)
 		end
 		function Group:Unindent()
 			Group._indent = math.max((Group._indent or 0) - 8, 0)
 		end
-		-- wrap subsequently-added roots with left padding while indented
+
 		local function indentWrap(roots: {GuiObject}): GuiObject
 			if (Group._indent or 0) <= 0 then return roots[1] end
 			local w = New("Frame", {
@@ -632,9 +601,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			return w
 		end
 
-		-- colorswatch.cpp ColorSwatch: 28x10 swatch + RGB popup.
-		-- The anchor row and right-slot positioning are provided by the caller
-		-- (checkbox rows via PlaceRight, standalone rows via AddColorRow).
 		local function makeSwatch(anchor: Frame, getPos: (number) -> UDim2, cp: any): any
 			cp = cp or {}
 			local def: Color3 = cp.Default or Color3.fromRGB(220, 220, 220)
@@ -675,8 +641,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				Chuddy:RegisterFlag(cflag .. "Alpha", C.Alpha, function(a) C:SetAlpha(a) end)
 			end
 			refreshSwatch()
-			-- interactive picker: SV square + hue bar + alpha bar
-			-- (colorswatch.cpp ColorPickerBody)
+
 			local pop: Frame? = nil
 			sw.MouseButton1Click:Connect(function()
 				if pop and pop.Parent then pop:Destroy() pop = nil return end
@@ -700,7 +665,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 					return if sat <= 0 then savedH else hue
 				end
 
-				-- SV square ------------------------------------------------
 				local svBase = New("Frame", { Parent = pop, BackgroundColor3 = Color3.fromHSV(renderHue(), 1, 1),
 					BorderSizePixel = 0, Size = UDim2.fromOffset(SV, SV), LayoutOrder = 1 }) :: Frame
 				local svWhite = New("Frame", { Parent = svBase, BackgroundColor3 = Color3.fromRGB(255, 255, 255),
@@ -718,7 +682,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 					BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(5, 5) })
 
-				-- hue bar --------------------------------------------------
 				local hueBar = New("Frame", { Parent = pop, BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 					BorderSizePixel = 0, Size = UDim2.fromOffset(SV, 8), LayoutOrder = 2 }) :: Frame
 				New("UIGradient", { Parent = hueBar, Color = ColorSequence.new({
@@ -736,7 +699,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 					BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(2, 8) })
 
-				-- alpha bar (checkered transparency preview) ---------------
 				local alphaBar = New("Frame", { Parent = pop, BackgroundColor3 = Color3.fromRGB(200, 200, 200),
 					BorderSizePixel = 0, ClipsDescendants = true,
 					Size = UDim2.fromOffset(SV, 8), LayoutOrder = 3 }) :: Frame
@@ -820,7 +782,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			return C
 		end
 
-		-- TextUnformatted + ColorSwatch pattern (visuals.cpp "Node path color")
 		function Group:AddColorRow(opts2: any): any
 			local text = opts2.Text or ""
 			local row = New("Frame", { Parent = box, BackgroundTransparency = 1,
@@ -839,7 +800,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			return C
 		end
 
-		-- layout helpers ----------------------------------------------------
 		function Group:AddLabel(text: string)
 			local l = Label(text, 11, T2.Text)
 			l.Parent = box
@@ -880,7 +840,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			return b
 		end
 
-		-- config.cpp Save/Load/Delete row: N equal buttons on one line
 		function Group:AddButtonRow(items: any): any
 			local rowF = New("Frame", { Parent = box, BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 16) }) :: Frame
@@ -898,7 +857,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			return outs
 		end
 
-		-- Checkbox + right-side attachments (bind / color / badge) ----------
 		function Group:AddCheckbox(opts2: any): any
 			local text = opts2.Text or opts2[1] or "Checkbox"
 			local default = if opts2.Default ~= nil then opts2.Default else false
@@ -912,7 +870,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				Size = UDim2.fromScale(1, 1), ZIndex = 2 }) :: TextButton
 			local cbox = New("Frame", { Parent = row, BackgroundColor3 = T2.CheckboxBg,
 				BorderSizePixel = 0, Position = UDim2.fromOffset(0, 2), Size = UDim2.fromOffset(10, 10) }) :: Frame
-			-- bevel: top/left dark, bottom/right light
+
 			New("Frame", { Parent = cbox, BackgroundColor3 = T2.BevelDark, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 1) })
 			New("Frame", { Parent = cbox, BackgroundColor3 = T2.BevelDark, BorderSizePixel = 0, Size = UDim2.new(0, 1, 1, 0) })
 			New("Frame", { Parent = cbox, BackgroundColor3 = T2.BevelLight, BorderSizePixel = 0, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 1) })
@@ -921,10 +879,10 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				Parent = cbox, BackgroundTransparency = 1,
 				Size = UDim2.fromScale(1, 1), Visible = default,
 			}) :: Frame
-			-- checkbox.cpp PathStroke tick: (0.22,0.50) -> (0.44,0.72) -> (0.80,0.24)
+
 			trackAccent(DrawLine(checkG, 2.2, 5.0, 4.4, 7.2, 2, T2.Accent), "bg")
 			trackAccent(DrawLine(checkG, 4.4, 7.2, 8.0, 2.4, 2, T2.Accent), "bg")
-			-- joint fill (PathStroke miter equivalent, kills the elbow notch)
+
 			trackAccent(New("Frame", { Parent = checkG, BackgroundColor3 = T2.Accent, BorderSizePixel = 0,
 				AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(4.4, 7.2),
 				Size = UDim2.fromOffset(2.5, 2.5) }), "bg")
@@ -946,7 +904,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			function Ctrl:Get() return Ctrl.Value end
 			hit.MouseButton1Click:Connect(function() Ctrl:Set(not Ctrl.Value) end)
 
-			-- inline right slot (PlaceRight equivalent)
 			local rightX = 0
 			local function reserve(w: number): UDim2
 				rightX += w + 3
@@ -957,7 +914,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				if kb.Flag then Chuddy:FlagType(kb.Flag, "key") end
 				if kb.ModeFlag then Chuddy:FlagType(kb.ModeFlag, "int") end
 				local dKey: Enum.KeyCode? = kb.Default
-				local dMode: number = kb.Mode or 0 -- bind.hpp: 0 toggle, 1 hold, 2 always
+				local dMode: number = kb.Mode or 0
 				local kcb = kb.Callback
 				local kflag, mflag = kb.Flag, kb.ModeFlag
 				if kflag and Chuddy.Flags[kflag] ~= nil then dKey = Chuddy.Flags[kflag] end
@@ -1003,7 +960,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 						Ctrl:Set(false)
 					end
 				end)
-				-- always-on behaves like enabled
+
 				task.spawn(function()
 					while pill.Parent do
 						if K.Mode == 2 and not Ctrl.Value then Ctrl:Set(true) end
@@ -1027,7 +984,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 					bl.Text = on and "ON" or "OFF"
 					bl.TextColor3 = on and T2.ToggleOn or T2.TextDisabled
 				end
-				-- follow checkbox state
+
 				local oldSet = Ctrl.Set
 				function Ctrl:Set(v: boolean)
 					oldSet(v); B:Set(v)
@@ -1040,7 +997,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			return Ctrl
 		end
 
-		-- Slider (mirrors slider.cpp SliderRow) --------------------------------
 		function Group:AddSlider(opts2: any): any
 			local text = opts2.Text or opts2[1] or "Slider"
 			local min = opts2.Min or 0
@@ -1053,7 +1009,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			local flag = opts2.Flag
 			if flag and Chuddy.Flags[flag] ~= nil then default = Chuddy.Flags[flag] end
 			if flag then Chuddy:FlagType(flag, if isFloat then "float" else "int") end
-			local unlimitedAtMax = opts2.UnlimitedAtMax -- for SliderDistance style
+			local unlimitedAtMax = opts2.UnlimitedAtMax
 
 			local wrap = New("Frame", { Parent = box, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26) }) :: Frame
 			local nameL = Label(text, 11, T2.TextStrong) nameL.Position = UDim2.fromOffset(0, 0) nameL.Parent = wrap
@@ -1062,14 +1018,13 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			local track = New("TextButton", { Parent = wrap, Text = "", AutoButtonColor = false,
 				BackgroundColor3 = T2.SliderTrack, BorderSizePixel = 0,
 				Position = UDim2.fromOffset(0, 16), Size = UDim2.new(1, 0, 0, 8) }) :: TextButton
-			-- bevel on track
+
 			New("Frame", { Parent = track, BackgroundColor3 = T2.BevelDark, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 1) })
 			New("Frame", { Parent = track, BackgroundColor3 = T2.BevelLight, BorderSizePixel = 0, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 1) })
 			local fill = New("Frame", { Parent = track, BackgroundColor3 = T2.Accent, BorderSizePixel = 0,
 				Position = UDim2.new(0, 1, 0.5, -1), Size = UDim2.new(0, 0, 0, 2) }) :: Frame
 			trackAccent(fill, "bg")
-			-- slider.cpp pentagon knob: 5x10 rect + 2px stepped point
-			-- (pixel-crisp, no rotation blur at this size)
+
 			local knob = New("Frame", { Parent = track, BackgroundTransparency = 1,
 				Size = UDim2.fromOffset(5, 12), Position = UDim2.new(0, 0, 0.5, -6) }) :: Frame
 			New("Frame", { Parent = knob, BackgroundColor3 = T2.SliderKnob, BorderSizePixel = 0,
@@ -1118,7 +1073,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			return S
 		end
 
-		-- Dropdown / Combo (mirrors combo.cpp) ---------------------------------
 		function Group:AddDropdown(opts2: any): any
 			local text = opts2.Text or opts2[1] or ""
 			local items = opts2.Items or opts2.Options or { "Option 1" }
@@ -1135,7 +1089,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				if typeof(fv) == "number" then default = math.clamp(fv, 1, #items)
 				elseif typeof(fv) == "string" then for i, v in ipairs(items) do if v == fv then default = i break end end end
 			end
-			-- "Menu scale##configScale": display strips the ## id (FindRenderedTextEnd)
+
 			local shown: string = (text:match("^(.-)##") or text)
 			local droots: {GuiObject} = {}
 			if text ~= "" then
@@ -1168,7 +1122,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				pop = New("Frame", { BackgroundColor3 = T2.ListEven, BorderSizePixel = 0,
 					Size = UDim2.new(0, dd.AbsoluteSize.X, 0, #items * 13 + 4) }) :: Frame
 				pop.Parent = screen; pop.ZIndex = 100
-				-- position under dropdown in screen space
+
 				local p = dd.AbsolutePosition
 				local sp = screen.AbsolutePosition
 				pop.Position = UDim2.fromOffset(p.X - sp.X, p.Y - sp.Y + 16)
@@ -1194,8 +1148,77 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		end
 		Group.AddCombo = Group.AddDropdown
 
-		-- Listbox (mirrors list.cpp: zebra rows, optional per-row checkbox,
-		-- click left of the box toggles the check, elsewhere selects)
+		function Group:AddKeybind(opts2: any): any
+			opts2 = opts2 or {}
+			local text = opts2.Text or "Keybind"
+			local dKey: Enum.KeyCode? = opts2.Default
+			local dMode: number = opts2.Mode or 0
+			local cb = opts2.Callback
+			local kflag, mflag = opts2.Flag, opts2.ModeFlag
+			if kflag and Chuddy.Flags[kflag] ~= nil then dKey = Chuddy.Flags[kflag] end
+			if mflag and typeof(Chuddy.Flags[mflag]) == "number" then dMode = Chuddy.Flags[mflag] end
+			if kflag then Chuddy:FlagType(kflag, "key") end
+			if mflag then Chuddy:FlagType(mflag, "int") end
+
+			local row = New("Frame", { Parent = box, BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 14) }) :: Frame
+			local lab = Label(text, 11, T2.Text)
+			lab.Position = UDim2.fromOffset(0, 0); lab.Size = UDim2.new(1, -44, 1, 0)
+			lab.TextTruncate = Enum.TextTruncate.AtEnd; lab.Parent = row
+			local pill = New("TextButton", { Parent = row, Text = "", AutoButtonColor = false,
+				BackgroundColor3 = T2.ControlBg, BorderSizePixel = 0, ZIndex = 3,
+				AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0),
+				Size = UDim2.fromOffset(34, 13) }) :: TextButton
+			Stroke(pill, T2.Stroke, 1)
+			local pl = Label("-", 8, T2.TextStrong) pl.AnchorPoint = Vector2.new(0.5, 0.5)
+			pl.Position = UDim2.fromScale(0.5, 0.5); pl.Parent = pill
+			local K: any = { Key = dKey, Mode = dMode, State = false, Capturing = false }
+			local function paint()
+				if K.Capturing then pl.Text = "..."
+				elseif K.Mode == 2 then pl.Text = "ON"; pl.TextColor3 = T2.ToggleOn
+				else pl.Text = KeyLabel(K.Key); pl.TextColor3 = T2.TextStrong end
+			end
+			paint()
+			local function fire()
+				if cb then task.spawn(cb, K.State) end
+			end
+			pill.MouseButton1Click:Connect(function()
+				K.Capturing = true; paint()
+			end)
+			pill.MouseButton2Click:Connect(function()
+				K.Mode = (K.Mode + 1) % 3; paint()
+				if mflag then Chuddy.Flags[mflag] = K.Mode end
+			end)
+			UserInputService.InputBegan:Connect(function(input, gpe)
+				if K.Capturing then
+					if input.KeyCode == Enum.KeyCode.Escape then K.Key = nil
+					elseif input.KeyCode ~= Enum.KeyCode.Unknown then K.Key = input.KeyCode end
+					K.Capturing = false; paint()
+					if kflag then Chuddy.Flags[kflag] = K.Key end
+					return
+				end
+				if gpe or K.Key == nil then return end
+				if input.KeyCode == K.Key then
+					if K.Mode == 0 then K.State = not K.State; fire()
+					elseif K.Mode == 1 then K.State = true; fire() end
+				end
+			end)
+			UserInputService.InputEnded:Connect(function(input)
+				if not K.Capturing and K.Key ~= nil and input.KeyCode == K.Key and K.Mode == 1 then
+					K.State = false; fire()
+				end
+			end)
+			task.spawn(function()
+				while pill.Parent do
+					if K.Mode == 2 and not K.State then K.State = true; fire() end
+					task.wait(0.25)
+				end
+			end)
+			local root = indentWrap({row})
+			self._window:_registerSearchable(root, text)
+			return K
+		end
+
 		function Group:AddListbox(opts2: any): any
 			local items: any = opts2.Items or { "Player1", "Player2" }
 			local h: number = opts2.Height or 90
@@ -1290,7 +1313,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			return L
 		end
 
-		-- Text input (search-style field) ---------------------------------------
 		function Group:AddTextbox(opts2: any): any
 			local text = opts2.Text or ""
 			local ph = opts2.Placeholder or text
@@ -1321,7 +1343,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		return Group
 	end
 
-	-- config.cpp format: name=value (bool/int %d, float %.4f, color "r g b a")
 	function Window:SaveConfig(): string
 		local lines: any = {}
 		for _, k in ipairs(Chuddy._flagOrder) do

@@ -1150,7 +1150,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				local listH = math.min(#items * 13 + 4, 134)
 				pop = New("ScrollingFrame", { BackgroundColor3 = T2.ListEven, BorderSizePixel = 0,
 					Size = UDim2.new(0, dd.AbsoluteSize.X, 0, listH),
-					ScrollBarThickness = 2, ScrollBarImageColor3 = T2.Stroke,
+					ScrollBarThickness = 2, ScrollBarImageColor3 = T2.StrokeHover,
 					CanvasSize = UDim2.fromScale(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y }) :: Frame
 				pop.Parent = screen; pop.ZIndex = 100
 				trackPopup(pop, dd, 0, 16)

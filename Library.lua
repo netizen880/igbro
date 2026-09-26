@@ -17,8 +17,6 @@ Chuddy._flagSetters = {} :: any
 Chuddy._flagOrder = {} :: any
 Chuddy._windows = {} :: any
 Chuddy._dropdownItems = {} :: any
-Chuddy._noteGui = nil :: any
-Chuddy._noteHolder = nil :: any
 Chuddy.Binding = false
 Chuddy._keybinds = {} :: any
 
@@ -175,64 +173,6 @@ function Chuddy:FlagType(flag: string, t: string)
 	if flag and flag ~= "" and Chuddy._flagTypes[flag] == nil then
 		Chuddy._flagTypes[flag] = t
 	end
-end
-
-function Chuddy:Notify(opts: any, text: any?, duration: any?)
-	if typeof(opts) == "string" then opts = { Title = opts, Text = text, Duration = duration } end
-	opts = opts or {}
-	local title = opts.Title or "notice"
-	local msg = opts.Text or opts.Content or opts.Description or ""
-	local dur = opts.Duration or 3.5
-	local T = Chuddy.Theme
-	if not Chuddy._noteHolder or not Chuddy._noteHolder.Parent then
-		local sg = New("ScreenGui", {
-			Name = "chuddy-notes", ResetOnSpawn = false,
-			ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 1000,
-		})
-		local ok, hui = pcall(function() return gethui and gethui() end)
-		if ok and hui ~= nil then sg.Parent = hui
-		else
-			local lp = Players.LocalPlayer
-			if lp then sg.Parent = lp:WaitForChild("PlayerGui")
-			else sg.Parent = game:GetService("CoreGui") end
-		end
-		local h = New("Frame", { Parent = sg, BackgroundTransparency = 1,
-			AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -18, 1, -18),
-			Size = UDim2.fromOffset(260, 400) })
-		New("UIListLayout", { Parent = h, SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 8), VerticalAlignment = Enum.VerticalAlignment.Bottom,
-			HorizontalAlignment = Enum.HorizontalAlignment.Right })
-		Chuddy._noteGui, Chuddy._noteHolder = sg, h
-	end
-	local holder = Chuddy._noteHolder
-	local live: any = {}
-	for _, c in ipairs(holder:GetChildren()) do
-		if c:IsA("Frame") then table.insert(live, c) end
-	end
-	while #live >= 5 do
-		live[1]:Destroy(); table.remove(live, 1)
-	end
-	local bH = 0
-	if msg ~= "" then
-		bH = math.ceil(TextService:GetTextSize(msg, 11, Chuddy.FontBody, Vector2.new(232, 10000)).Y)
-	end
-	local card = New("Frame", { Parent = holder, BackgroundColor3 = T.PanelBg, BorderSizePixel = 0,
-		Size = UDim2.new(1, 0, 0, 8 + 14 + (if msg ~= "" then 4 + bH else 0) + 8) }) :: Frame
-	Stroke(card, T.Stroke, 1)
-	local bar = New("Frame", { Parent = card, BackgroundColor3 = T.Accent, BorderSizePixel = 0,
-		Size = UDim2.new(0, 3, 1, 0) }) :: Frame
-	trackAccent(bar, "bg")
-	local tt = Label(title, 11, T.TextStrong) tt.Font = Chuddy.FontBold
-	tt.Position = UDim2.fromOffset(14, 8); tt.Parent = card
-	if msg ~= "" then
-		local bb = Label(msg, 11, T.Text)
-		bb.AutomaticSize = Enum.AutomaticSize.None
-		bb.Size = UDim2.new(1, -28, 0, bH); bb.TextWrapped = true
-		bb.Position = UDim2.fromOffset(14, 26); bb.Parent = card
-	end
-	task.delay(dur, function()
-		if card.Parent then card:Destroy() end
-	end)
 end
 
 local KeyNames: any = {}
@@ -983,7 +923,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			lab.TextTruncate = Enum.TextTruncate.AtEnd; lab.Parent = row
 
 			local Ctrl: any = {}
-			Ctrl._group = self
 			Ctrl.Row = row; Ctrl.Value = default
 			if flag then Chuddy:FlagType(flag, "bool") end
 			if flag then Chuddy:RegisterFlag(flag, default, function(v) Ctrl:Set(v) end) end
@@ -1072,25 +1011,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			function Ctrl:AddColorPicker(cp: any): any
 				return makeSwatch(row, reserve, cp)
 			end
-			function Ctrl:Gear(builder)
-				if type(builder) ~= "function" then return Ctrl end
-				local G = Ctrl._group
-				G:Indent()
-				local panel = {
-					Toggle = function(_, o) return G:AddCheckbox(o) end,
-					Slider = function(_, o) return G:AddSlider(o) end,
-					Dropdown = function(_, o) return G:AddDropdown(o) end,
-					ColorPicker = function(_, o) return G:AddColorRow(o) end,
-					Input = function(_, o) return G:AddTextbox(o) end,
-					Button = function(_, o) return G:AddButton(o) end,
-					ButtonRow = function(_, o) return G:AddButtonRow(o) end,
-					Label = function(_, t) return G:AddLabel(t) end,
-				}
-				local ok, err = pcall(builder, panel)
-				G:Unindent()
-				if not ok then error(err, 0) end
-				return Ctrl
-			end
 			function Ctrl:AddBadge(defaultOn: boolean?): any
 				local b = New("Frame", { Parent = row, BackgroundColor3 = T2.ControlBg, BorderSizePixel = 0,
 					AnchorPoint = Vector2.new(1, 0.5), Size = UDim2.fromOffset(28, 12) }) :: Frame
@@ -1159,7 +1079,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 
 			local S: any = { Value = default }
 			local function fmt(v: number): string
-				if opts2.ZeroText ~= nil and v <= min then return opts2.ZeroText end
 				if unlimitedAtMax and math.floor(v + 0.5) >= max then return "Unlimited" end
 				if isFloat then return string.format("%." .. tostring(decimals) .. "f%s", v, suffix) end
 				return string.format("%d%s", math.floor(v + 0.5), suffix)
@@ -1200,19 +1119,15 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		function Group:AddDropdown(opts2: any): any
 			local text = opts2.Text or opts2[1] or ""
 			local items = opts2.Items or opts2.Options or { "Option 1" }
-			local multi = opts2.Multi or false
 			local default = opts2.Default or 1
-			if multi then
-				if typeof(default) ~= "table" then default = {} end
-			elseif typeof(default) == "string" then
+			if typeof(default) == "string" then
 				for i, v in ipairs(items) do if v == default then default = i break end end
 				if typeof(default) == "string" then default = 1 end
 			end
 			local cb = opts2.Callback
 			local flag = opts2.Flag
-			if flag then Chuddy._dropdownItems[flag] = items end
-			if flag then Chuddy:FlagType(flag, if multi then "multiselect" else "int") end
-			if not multi and flag and Chuddy.Flags[flag] ~= nil then
+			if flag then Chuddy:FlagType(flag, "int") end
+			if flag and Chuddy.Flags[flag] ~= nil then
 				local fv = Chuddy.Flags[flag]
 				if typeof(fv) == "number" then default = math.clamp(fv, 1, #items)
 				elseif typeof(fv) == "string" then for i, v in ipairs(items) do if v == fv then default = i break end end end
@@ -1228,7 +1143,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				BackgroundColor3 = T2.ControlBg, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 15) }) :: TextButton
 			table.insert(droots, dd)
 			Stroke(dd, T2.Stroke, 1)
-			local cur = Label(if multi then "" else (items[default] or ""), 11, T2.TextStrong)
+			local cur = Label(items[default] or "", 11, T2.TextStrong)
 			cur.AutomaticSize = Enum.AutomaticSize.None
 			cur.Position = UDim2.fromOffset(5, 0); cur.Size = UDim2.new(1, -20, 1, 0)
 			cur.TextTruncate = Enum.TextTruncate.AtEnd; cur.Parent = dd
@@ -1237,32 +1152,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			dd.MouseEnter:Connect(function() for _, s in ipairs(dd:GetChildren()) do if s:IsA("UIStroke") then s.Color = T2.StrokeHover end end end)
 			dd.MouseLeave:Connect(function() for _, s in ipairs(dd:GetChildren()) do if s:IsA("UIStroke") then s.Color = T2.Stroke end end end)
 
-			local D: any = { Index = default, Items = items, Selected = {} :: any }
-			if multi then
-				local init: any = if flag and typeof(Chuddy.Flags[flag]) == "table" then Chuddy.Flags[flag] else default
-				if typeof(init) == "table" then
-					for _, want in ipairs(init) do
-						for i, name in ipairs(items) do if name == want then D.Selected[i] = true end end
-					end
-				end
-			end
-			function D:RefreshMulti(silent: boolean?)
-				local vals: any = {}
-				for i, name in ipairs(D.Items) do if D.Selected[i] then table.insert(vals, name) end end
-				cur.Text = if #vals > 0 then table.concat(vals, ", ") else (opts2.Empty or "none")
-				if flag then Chuddy.Flags[flag] = vals end
-				if cb and not silent then task.spawn(cb, vals) end
-			end
-			function D:ApplyMulti(arr: any)
-				table.clear(D.Selected)
-				if typeof(arr) == "table" then
-					for _, want in ipairs(arr) do
-						for i, name in ipairs(D.Items) do if name == want then D.Selected[i] = true end end
-					end
-				end
-				D:RefreshMulti()
-			end
-			if multi then D:RefreshMulti(true) end
+			local D: any = { Index = default, Items = items }
 			local pop: Frame? = nil
 			function D:Set(i: number | string, silent: boolean?)
 				if typeof(i) == "string" then
@@ -1276,27 +1166,10 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			end
 			function D:SetOptions(newItems: any)
 				D.Items = newItems or {}
-				if multi then
-					local vals: any = {}
-					for i, name in ipairs(D.Items) do if D.Selected[i] then table.insert(vals, name) end end
-					table.clear(D.Selected)
-					for _, want in ipairs(vals) do
-						for i, name in ipairs(D.Items) do if name == want then D.Selected[i] = true end end
-					end
-					D:RefreshMulti(true)
-				else
-					if D.Index > #D.Items then D.Index = 1 end
-					cur.Text = D.Items[D.Index] or ""
-				end
+				if D.Index > #D.Items then D.Index = 1 end
+				cur.Text = D.Items[D.Index] or ""
 			end
-			function D:Get(): any
-				if multi then
-					local vals: any = {}
-					for i, name in ipairs(D.Items) do if D.Selected[i] then table.insert(vals, name) end end
-					return vals
-				end
-				return D.Items[D.Index], D.Index
-			end
+			function D:Get() return D.Items[D.Index], D.Index end
 			dd.MouseButton1Click:Connect(function()
 				if pop and pop.Parent then pop:Destroy() pop = nil return end
 				pop = New("Frame", { BackgroundColor3 = T2.ListEven, BorderSizePixel = 0,
@@ -1311,34 +1184,20 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				for i, name in ipairs(items) do
 					local it = New("TextButton", { Parent = pop, Text = "", AutoButtonColor = false,
 						BackgroundColor3 = T2.ListEven, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 13) }) :: TextButton
-					local il = Label(name, 11, if (multi and D.Selected[i]) or (not multi and i == D.Index) then T2.Accent else T2.Text)
+					local il = Label(name, 11, if i == D.Index then T2.Accent else T2.Text)
 					il.AutomaticSize = Enum.AutomaticSize.None
 					il.Position = UDim2.fromOffset(5, 0); il.Size = UDim2.new(1, -10, 1, 0)
 					il.TextTruncate = Enum.TextTruncate.AtEnd; il.Parent = it
 					it.MouseEnter:Connect(function() il.TextColor3 = T2.Accent end)
 					it.MouseLeave:Connect(function()
-						il.TextColor3 = if (multi and D.Selected[i]) or (not multi and i == D.Index) then T2.Accent else T2.Text
+						il.TextColor3 = if i == D.Index then T2.Accent else T2.Text
 					end)
 					it.MouseButton1Click:Connect(function()
-						if multi then
-							if D.Selected[i] then D.Selected[i] = nil else D.Selected[i] = true end
-							D:RefreshMulti()
-							il.TextColor3 = if D.Selected[i] then T2.Accent else T2.Text
-						else
-							D:Set(i); if pop then pop:Destroy() pop = nil end
-						end
+						D:Set(i); if pop then pop:Destroy() pop = nil end
 					end)
 				end
 			end)
-			if flag then
-				if multi then
-					local def0: any = {}
-					for i, name in ipairs(items) do if D.Selected[i] then table.insert(def0, name) end end
-					Chuddy:RegisterFlag(flag, def0, function(v) if typeof(v) == "table" then D:ApplyMulti(v) end end)
-				else
-					Chuddy:RegisterFlag(flag, default, function(v) if typeof(v)=="number" then D:Set(v) end end)
-				end
-			end
+			if flag then Chuddy:RegisterFlag(flag, default, function(v) if typeof(v)=="number" then D:Set(v) end end) end
 			local droot = indentWrap(droots)
 			self._window:_registerSearchable(droot, shown .. " " .. table.concat(items, " "))
 			return D
@@ -1540,12 +1399,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				if flag then Chuddy.Flags[flag] = tb.Text end
 				if cb then task.spawn(cb, tb.Text) end
 			end)
-			if opts2.Live then
-				tb:GetPropertyChangedSignal("Text"):Connect(function()
-					if flag then Chuddy.Flags[flag] = tb.Text end
-					if cb then task.spawn(cb, tb.Text, false) end
-				end)
-			end
 			table.insert(troots, tb)
 			indentWrap(troots)
 			return tb
@@ -1571,8 +1424,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				table.insert(lines, string.format("%s=%d", k, v and 1 or 0))
 			elseif t == "key" then
 				table.insert(lines, string.format("%s=%s", k, if typeof(v) == "EnumItem" then (v :: any).Name else "-"))
-			elseif t == "multiselect" and typeof(v) == "table" then
-				table.insert(lines, string.format("%s=%s", k, table.concat(v, ",")))
 			elseif typeof(v) == "string" then
 				table.insert(lines, string.format("%s=%s", k, v))
 			elseif typeof(v) == "number" then
@@ -1611,10 +1462,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				elseif t == "key" then
 					local okkc, kc = pcall(function() return (Enum.KeyCode :: any)[payload] end)
 					Chuddy.Flags[k] = if okkc then kc else nil
-				elseif t == "multiselect" then
-					local arr: any = {}
-					for part in string.gmatch(payload, "[^,]+") do table.insert(arr, part) end
-					Chuddy.Flags[k] = arr
 				elseif t == "string" then
 					Chuddy.Flags[k] = payload
 				else

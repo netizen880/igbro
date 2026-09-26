@@ -662,31 +662,17 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				AnchorPoint = Vector2.new(1, 0.5), Size = UDim2.fromOffset(28, 10) }) :: TextButton
 			sw.Position = getPos(28)
 			Stroke(sw, T2.Stroke, 1)
-			local alpha0 = 1
-			if cp.DefaultAlpha ~= nil then alpha0 = math.clamp(cp.DefaultAlpha, 0, 1) end
-			if cflag then
-				local av = Chuddy.Flags[cflag .. "Alpha"]
-				if typeof(av) == "number" then alpha0 = math.clamp(av, 0, 1) end
-			end
-			local C: any = { Value = def, Alpha = alpha0 }
+			local C: any = { Value = def }
 			local function refreshSwatch()
 				sw.BackgroundColor3 = C.Value
-				sw.BackgroundTransparency = 1 - C.Alpha
 			end
 			function C:Set(c: Color3)
 				C.Value = c; refreshSwatch()
 				if cflag then Chuddy.Flags[cflag] = c end
-				if ccb then task.spawn(ccb, c, C.Alpha) end
-			end
-			function C:SetAlpha(a: number)
-				C.Alpha = math.clamp(a, 0, 1); refreshSwatch()
-				if cflag then Chuddy.Flags[cflag .. "Alpha"] = C.Alpha end
-				if ccb then task.spawn(ccb, C.Value, C.Alpha) end
+				if ccb then task.spawn(ccb, c) end
 			end
 			if cflag then
 				Chuddy:RegisterFlag(cflag, def, function(c) if typeof(c) == "Color3" then C:Set(c) end end)
-				Chuddy:FlagType(cflag .. "Alpha", "float")
-				Chuddy:RegisterFlag(cflag .. "Alpha", C.Alpha, function(a) C:SetAlpha(a) end)
 			end
 			refreshSwatch()
 
@@ -694,7 +680,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			sw.MouseButton1Click:Connect(function()
 				if pop and pop.Parent then pop:Destroy() pop = nil return end
 				pop = New("Frame", { BackgroundColor3 = T2.CheckboxBg, BorderSizePixel = 0,
-					Size = UDim2.fromOffset(150, 178) }) :: Frame
+					Size = UDim2.fromOffset(150, 164) }) :: Frame
 				pop.Parent = screen; pop.ZIndex = 60
 				do
 					local p = sw.AbsolutePosition
@@ -707,7 +693,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 
 				local hue, sat, val = C.Value:ToHSV()
 				local savedH, savedS = hue, sat
-				local alpha: number = C.Alpha
 				local SV = 138
 
 				local function renderHue(): number
@@ -748,48 +733,15 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 					BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(2, 8) })
 
-				local alphaBar = New("Frame", { Parent = pop, BackgroundColor3 = Color3.fromRGB(200, 200, 200),
-					BorderSizePixel = 0, ClipsDescendants = true,
-					Size = UDim2.fromOffset(SV, 8), LayoutOrder = 3 }) :: Frame
-				do
-					local cell = 5
-					for yy = 0, 1 do
-						for xx = 0, 27 do
-							New("Frame", { Parent = alphaBar,
-								BackgroundColor3 = if (xx + yy) % 2 == 0
-									then Color3.fromRGB(200, 200, 200) else Color3.fromRGB(140, 140, 140),
-								BorderSizePixel = 0, Position = UDim2.fromOffset(xx * cell, yy * cell),
-								Size = UDim2.fromOffset(cell, cell) })
-						end
-					end
-				end
-				local alphaGrad = New("Frame", { Parent = alphaBar, BackgroundColor3 = C.Value,
-					BorderSizePixel = 0, Size = UDim2.fromScale(1, 1) }) :: Frame
-				New("UIGradient", { Parent = alphaGrad, Transparency = NumberSequence.new({
-					NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) }) })
-				Stroke(alphaBar, T2.BevelDark, 1)
-				local alphaHO = New("Frame", { Parent = alphaBar, BackgroundColor3 = T2.BevelDark,
-					BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(4, 10) }) :: Frame
-				New("Frame", { Parent = alphaHO, BackgroundColor3 = T2.TextStrong,
-					BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5),
-					Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(2, 8) })
-
 				local function paint()
 					svBase.BackgroundColor3 = Color3.fromHSV(renderHue(), 1, 1)
 					svCurO.Position = UDim2.fromOffset(
 						math.clamp(sat * SV, 3, SV - 3), math.clamp((1 - val) * SV, 3, SV - 3))
 					hueHO.Position = UDim2.fromOffset(math.clamp(hue * SV, 2, SV - 2), 4)
-					alphaGrad.BackgroundColor3 = C.Value
-					alphaHO.Position = UDim2.fromOffset(math.clamp(alpha * SV, 2, SV - 2), 4)
 					refreshSwatch()
 				end
 				local function push()
 					C:Set(Color3.fromHSV(renderHue(), sat, val))
-					paint()
-				end
-				local function setAlpha(a: number)
-					alpha = math.clamp(a, 0, 1)
-					C:SetAlpha(alpha)
 					paint()
 				end
 
@@ -808,8 +760,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 					AutoButtonColor = false, Size = UDim2.fromScale(1, 1) }) :: TextButton
 				local hueZone = New("TextButton", { Parent = hueBar, BackgroundTransparency = 1, Text = "",
 					AutoButtonColor = false, Size = UDim2.fromScale(1, 1) }) :: TextButton
-				local alphaZone = New("TextButton", { Parent = alphaBar, BackgroundTransparency = 1, Text = "",
-					AutoButtonColor = false, Size = UDim2.fromScale(1, 1) }) :: TextButton
 				dragZone(svZone, function(p)
 					local sn = math.clamp((p.X - svBase.AbsolutePosition.X) / SV, 0, 1)
 					local vn = 1 - math.clamp((p.Y - svBase.AbsolutePosition.Y) / SV, 0, 1)
@@ -822,9 +772,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 					hue = math.min(math.clamp((p.X - hueBar.AbsolutePosition.X) / SV, 0, 1), 0.9999)
 					savedH = hue
 					push()
-				end)
-				dragZone(alphaZone, function(p)
-					setAlpha(math.clamp((p.X - alphaBar.AbsolutePosition.X) / SV, 0, 1))
 				end)
 				paint()
 			end)
@@ -1450,9 +1397,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			local v = Chuddy.Flags[k]
 			local t = Chuddy._flagTypes[k]
 			if t == "color" and typeof(v) == "Color3" then
-				local a = Chuddy.Flags[k .. "Alpha"]
-				if typeof(a) ~= "number" then a = 1 end
-				table.insert(lines, string.format("%s=%.4f %.4f %.4f %.4f", k, v.R, v.G, v.B, a))
+				table.insert(lines, string.format("%s=%.4f %.4f %.4f %.4f", k, v.R, v.G, v.B, 1))
 			elseif t == "float" and typeof(v) == "number" then
 				table.insert(lines, string.format("%s=%.4f", k, v))
 			elseif t == "int" and typeof(v) == "number" then
@@ -1486,15 +1431,9 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				elseif t == "float" then
 					Chuddy.Flags[k] = tonumber(payload) or 0
 				elseif t == "color" then
-					local r, g, b, a = string.match(payload, "([%d%.%-]+)%s+([%d%.%-]+)%s+([%d%.%-]+)%s*([%d%.%-]*)")
+					local r, g, b = string.match(payload, "([%d%.%-]+)%s+([%d%.%-]+)%s+([%d%.%-]+)")
 					if r and g and b then
 						Chuddy.Flags[k] = Color3.new(tonumber(r) or 0, tonumber(g) or 0, tonumber(b) or 0)
-						local aa = tonumber(a)
-						if aa ~= nil then
-							Chuddy.Flags[k .. "Alpha"] = math.clamp(aa, 0, 1)
-							local aset = Chuddy._flagSetters[k .. "Alpha"]
-							if aset then pcall(aset, Chuddy.Flags[k .. "Alpha"]) end
-						end
 					end
 				elseif t == "key" then
 					local okkc, kc = pcall(function() return (Enum.KeyCode :: any)[payload] end)

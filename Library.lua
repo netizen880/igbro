@@ -164,6 +164,8 @@ function Chuddy:RegisterFlag(flag: string, default: any, setter: (any)->())
 	if Chuddy.Flags[flag] == nil then
 		Chuddy.Flags[flag] = default
 		Chuddy._flagDefaults[flag] = default
+	end
+	if Chuddy._flagSetters[flag] == nil then
 		Chuddy._flagSetters[flag] = setter
 		table.insert(Chuddy._flagOrder, flag)
 	end
@@ -667,6 +669,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				if ccb then task.spawn(ccb, C.Value, C.Alpha) end
 			end
 			if cflag then
+				Chuddy:RegisterFlag(cflag, def, function(c) if typeof(c) == "Color3" then C:Set(c) end end)
 				Chuddy:FlagType(cflag .. "Alpha", "float")
 				Chuddy:RegisterFlag(cflag .. "Alpha", C.Alpha, function(a) C:SetAlpha(a) end)
 			end
@@ -971,6 +974,14 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 					else pl.Text = KeyLabel(K.Key); pl.TextColor3 = T2.TextStrong end
 				end
 				paint()
+				if kflag then Chuddy:RegisterFlag(kflag, K.Key, function(v)
+					if typeof(v) == "EnumItem" or v == nil then K.Key = v end
+					K.Capturing = false; paint()
+				end) end
+				if mflag then Chuddy:RegisterFlag(mflag, K.Mode, function(v)
+					if typeof(v) == "number" then K.Mode = v end
+					paint()
+				end) end
 				pill.MouseButton1Click:Connect(function()
 					K.Capturing = true; Chuddy.Binding = true; paint()
 				end)
@@ -1243,6 +1254,14 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				else pl.Text = KeyLabel(K.Key); pl.TextColor3 = T2.TextStrong end
 			end
 			paint()
+			if kflag then Chuddy:RegisterFlag(kflag, K.Key, function(v)
+				if typeof(v) == "EnumItem" or v == nil then K.Key = v end
+				K.Capturing = false; paint()
+			end) end
+			if mflag then Chuddy:RegisterFlag(mflag, K.Mode, function(v)
+				if typeof(v) == "number" then K.Mode = v end
+				paint()
+			end) end
 			local function fire()
 				if cb then task.spawn(cb, K.State) end
 			end
@@ -1395,6 +1414,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				Font = Chuddy.FontBody, TextSize = 11, Text = def, ClearTextOnFocus = false,
 				TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 16) }) :: TextBox
 			Pad(tb, 4, 0, 0, 0); Stroke(tb, T2.Stroke, 1)
+			if flag then Chuddy:RegisterFlag(flag, def, function(v) tb.Text = tostring(v or "") end) end
 			tb.FocusLost:Connect(function()
 				if flag then Chuddy.Flags[flag] = tb.Text end
 				if cb then task.spawn(cb, tb.Text) end

@@ -1081,11 +1081,11 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 
 			local wrap = New("Frame", { Parent = box, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 26) }) :: Frame
 			local nameL = Label(text, 11, T2.TextStrong) nameL.Position = UDim2.fromOffset(0, 0)
-			nameL.AutomaticSize = Enum.AutomaticSize.None; nameL.Size = UDim2.new(1, -56, 1, 0)
+			nameL.AutomaticSize = Enum.AutomaticSize.Y; nameL.Size = UDim2.new(1, -56, 0, 0)
 			nameL.TextTruncate = Enum.TextTruncate.AtEnd; nameL.Parent = wrap
 			local valL = Label("", 11, T2.TextStrong) valL.AnchorPoint = Vector2.new(1, 0)
-			valL.AutomaticSize = Enum.AutomaticSize.X
-			valL.Position = UDim2.new(1, 0, 0, 0); valL.Size = UDim2.new(0, 0, 1, 0); valL.Parent = wrap
+			valL.AutomaticSize = Enum.AutomaticSize.XY
+			valL.Position = UDim2.new(1, 0, 0, 0); valL.Size = UDim2.new(0, 0, 0, 0); valL.Parent = wrap
 			local track = New("TextButton", { Parent = wrap, Text = "", AutoButtonColor = false,
 				BackgroundColor3 = T2.SliderTrack, BorderSizePixel = 0,
 				Position = UDim2.fromOffset(0, 16), Size = UDim2.new(1, 0, 0, 8) }) :: TextButton

@@ -1454,6 +1454,71 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		screen:Destroy()
 	end
 
+	local FS_MEM: any = {}
+	local function hasFS(): boolean
+		return typeof(writefile) == "function" and typeof(readfile) == "function"
+	end
+	function Window:ConfigFolder(): string
+		return "chudvision/configs"
+	end
+	function Window:SaveFile(name: string): boolean
+		if name == nil or name == "" then return false end
+		local data = self:SaveConfig()
+		if hasFS() then
+			pcall(function()
+				if typeof(makefolder) == "function" then
+					pcall(makefolder, "chudvision")
+					pcall(makefolder, "chudvision/configs")
+				end
+				writefile("chudvision/configs/" .. name .. ".chud", data)
+			end)
+			return true
+		end
+		FS_MEM[name] = data
+		return true
+	end
+	function Window:LoadFile(name: string): boolean
+		if name == nil or name == "" then return false end
+		local data: any = nil
+		if hasFS() then
+			local ok, res = pcall(function()
+				return readfile("chudvision/configs/" .. name .. ".chud")
+			end)
+			if ok and type(res) == "string" then data = res end
+		else
+			data = FS_MEM[name]
+		end
+		if not data then return false end
+		return self:LoadConfig(data)
+	end
+	function Window:ListFiles(): any
+		if hasFS() then
+			local ok, files = pcall(function() return listfiles("chudvision/configs") end)
+			if ok and type(files) == "table" then
+				local out: any = {}
+				for _, f in ipairs(files) do
+					local n = string.match(f, "([^/\\]+)%.chud$")
+					if n then table.insert(out, n) end
+				end
+				table.sort(out)
+				return out
+			end
+		end
+		local out2: any = {}
+		for k in pairs(FS_MEM) do table.insert(out2, k) end
+		table.sort(out2)
+		return out2
+	end
+	function Window:DeleteFile(name: string): boolean
+		if name == nil or name == "" then return false end
+		if hasFS() then
+			pcall(function() delfile("chudvision/configs/" .. name .. ".chud") end)
+			return true
+		end
+		FS_MEM[name] = nil
+		return true
+	end
+
 	table.insert(Chuddy._windows, Window)
 	return Window
 end

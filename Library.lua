@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TextService = game:GetService("TextService")
 local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -414,6 +415,20 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		return { Btn = btn, Label = lbl, Cap = {capDark, capMid, capTop}, EdgeTop = edgeTop, Foot = foot }
 	end
 
+	local function trackPopup(pop: GuiObject, anchor: GuiObject, dx: number, dy: number)
+		local conn: RBXScriptConnection? = nil
+		conn = RunService.Heartbeat:Connect(function()
+			if not pop.Parent or not anchor:IsDescendantOf(game) or not screen.Enabled then
+				if conn then conn:Disconnect() end
+				if pop.Parent then pop:Destroy() end
+				return
+			end
+			local p = anchor.AbsolutePosition
+			local sp = screen.AbsolutePosition
+			pop.Position = UDim2.fromOffset(p.X - sp.X + dx, (p.Y - sp.Y) + dy)
+		end)
+	end
+
 	function Window:AddTab(name: string): any
 		local order = #self.Tabs + 1
 		local isActive = order == 1
@@ -686,6 +701,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 					local sp = screen.AbsolutePosition
 					pop.Position = UDim2.fromOffset(p.X - sp.X - 122, (p.Y - sp.Y) + 12)
 				end
+				trackPopup(pop, sw, -122, 12)
 				Stroke(pop, T2.Stroke, 1); Pad(pop, 6, 6, 6, 6)
 				New("UIListLayout", { Parent = pop, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) })
 
@@ -1184,13 +1200,13 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			function D:Get() return D.Items[D.Index], D.Index end
 			dd.MouseButton1Click:Connect(function()
 				if pop and pop.Parent then pop:Destroy() pop = nil return end
-				pop = New("Frame", { BackgroundColor3 = T2.ListEven, BorderSizePixel = 0,
-					Size = UDim2.new(0, dd.AbsoluteSize.X, 0, #items * 13 + 4) }) :: Frame
+				local listH = math.min(#items * 13 + 4, 134)
+				pop = New("ScrollingFrame", { BackgroundColor3 = T2.ListEven, BorderSizePixel = 0,
+					Size = UDim2.new(0, dd.AbsoluteSize.X, 0, listH),
+					ScrollBarThickness = 2, ScrollBarImageColor3 = T2.Stroke,
+					CanvasSize = UDim2.fromScale(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y }) :: Frame
 				pop.Parent = screen; pop.ZIndex = 100
-
-				local p = dd.AbsolutePosition
-				local sp = screen.AbsolutePosition
-				pop.Position = UDim2.fromOffset(p.X - sp.X, p.Y - sp.Y + 16)
+				trackPopup(pop, dd, 0, 16)
 				Stroke(pop, T2.Stroke, 1); Pad(pop, 0, 2, 0, 2)
 				New("UIListLayout", { Parent = pop, Padding = UDim.new(0, 0) })
 				for i, name in ipairs(items) do

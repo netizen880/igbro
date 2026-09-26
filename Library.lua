@@ -634,7 +634,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		end
 
 		local function indentWrap(roots: {GuiObject}): GuiObject
-			if (Group._indent or 0) <= 0 then return roots[1] end
+			if (Group._indent or 0) <= 0 and #roots == 1 then return roots[1] end
 			local w = New("Frame", {
 				Parent = box, BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
@@ -794,6 +794,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			local C = makeSwatch(row, reserveR, opts2)
 			local root = indentWrap({row})
 			self._window:_registerSearchable(root, text)
+			C.Root = root
 			return C
 		end
 
@@ -1009,6 +1010,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 
 			local croot = indentWrap({row})
 			self._window:_registerSearchable(croot, text)
+			Ctrl.Root = croot
 			return Ctrl
 		end
 
@@ -1088,6 +1090,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			if flag then Chuddy:RegisterFlag(flag, default, function(v) S:Set(v, true) end) end
 			local sroot = indentWrap({wrap})
 			self._window:_registerSearchable(sroot, text)
+			S.Root = sroot
 			return S
 		end
 
@@ -1175,6 +1178,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			if flag then Chuddy:RegisterFlag(flag, default, function(v) if typeof(v)=="number" then D:Set(v) end end) end
 			local droot = indentWrap(droots)
 			self._window:_registerSearchable(droot, shown .. " " .. table.concat(items, " "))
+			D.Root = droot
 			return D
 		end
 		Group.AddCombo = Group.AddDropdown

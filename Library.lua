@@ -955,7 +955,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				end)
 				UserInputService.InputBegan:Connect(function(input, gpe)
 					if K.Capturing then
-						if input.KeyCode == Enum.KeyCode.Escape then K.Key = nil
+						if input.KeyCode == Enum.KeyCode.Escape or input.KeyCode == Enum.KeyCode.Backspace then K.Key = nil
 						elseif input.KeyCode ~= Enum.KeyCode.Unknown then K.Key = input.KeyCode end
 						K.Capturing = false; Chuddy.Binding = false; paint()
 						if kflag then Chuddy.Flags[kflag] = K.Key end
@@ -1238,7 +1238,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			end)
 			UserInputService.InputBegan:Connect(function(input, gpe)
 				if K.Capturing then
-					if input.KeyCode == Enum.KeyCode.Escape then K.Key = nil
+					if input.KeyCode == Enum.KeyCode.Escape or input.KeyCode == Enum.KeyCode.Backspace then K.Key = nil
 					elseif input.KeyCode ~= Enum.KeyCode.Unknown then K.Key = input.KeyCode end
 					K.Capturing = false; Chuddy.Binding = false; paint()
 					if kflag then Chuddy.Flags[kflag] = K.Key end

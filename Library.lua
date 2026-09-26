@@ -16,6 +16,11 @@ Chuddy._flagTypes = {} :: any
 Chuddy._flagSetters = {} :: any
 Chuddy._flagOrder = {} :: any
 Chuddy._windows = {} :: any
+Chuddy._dropdownItems = {} :: any
+Chuddy._noteGui = nil :: any
+Chuddy._noteHolder = nil :: any
+Chuddy.Binding = false
+Chuddy._keybinds = {} :: any
 
 Chuddy.Theme = {
 	Accent         = Color3.fromRGB(240, 110, 30),
@@ -172,6 +177,64 @@ function Chuddy:FlagType(flag: string, t: string)
 	end
 end
 
+function Chuddy:Notify(opts: any, text: any?, duration: any?)
+	if typeof(opts) == "string" then opts = { Title = opts, Text = text, Duration = duration } end
+	opts = opts or {}
+	local title = opts.Title or "notice"
+	local msg = opts.Text or opts.Content or opts.Description or ""
+	local dur = opts.Duration or 3.5
+	local T = Chuddy.Theme
+	if not Chuddy._noteHolder or not Chuddy._noteHolder.Parent then
+		local sg = New("ScreenGui", {
+			Name = "chuddy-notes", ResetOnSpawn = false,
+			ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 1000,
+		})
+		local ok, hui = pcall(function() return gethui and gethui() end)
+		if ok and hui ~= nil then sg.Parent = hui
+		else
+			local lp = Players.LocalPlayer
+			if lp then sg.Parent = lp:WaitForChild("PlayerGui")
+			else sg.Parent = game:GetService("CoreGui") end
+		end
+		local h = New("Frame", { Parent = sg, BackgroundTransparency = 1,
+			AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -18, 1, -18),
+			Size = UDim2.fromOffset(260, 400) })
+		New("UIListLayout", { Parent = h, SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 8), VerticalAlignment = Enum.VerticalAlignment.Bottom,
+			HorizontalAlignment = Enum.HorizontalAlignment.Right })
+		Chuddy._noteGui, Chuddy._noteHolder = sg, h
+	end
+	local holder = Chuddy._noteHolder
+	local live: any = {}
+	for _, c in ipairs(holder:GetChildren()) do
+		if c:IsA("Frame") then table.insert(live, c) end
+	end
+	while #live >= 5 do
+		live[1]:Destroy(); table.remove(live, 1)
+	end
+	local bH = 0
+	if msg ~= "" then
+		bH = math.ceil(TextService:GetTextSize(msg, 11, Chuddy.FontBody, Vector2.new(232, 10000)).Y)
+	end
+	local card = New("Frame", { Parent = holder, BackgroundColor3 = T.PanelBg, BorderSizePixel = 0,
+		Size = UDim2.new(1, 0, 0, 8 + 14 + (if msg ~= "" then 4 + bH else 0) + 8) }) :: Frame
+	Stroke(card, T.Stroke, 1)
+	local bar = New("Frame", { Parent = card, BackgroundColor3 = T.Accent, BorderSizePixel = 0,
+		Size = UDim2.new(0, 3, 1, 0) }) :: Frame
+	trackAccent(bar, "bg")
+	local tt = Label(title, 11, T.TextStrong) tt.Font = Chuddy.FontBold
+	tt.Position = UDim2.fromOffset(14, 8); tt.Parent = card
+	if msg ~= "" then
+		local bb = Label(msg, 11, T.Text)
+		bb.AutomaticSize = Enum.AutomaticSize.None
+		bb.Size = UDim2.new(1, -28, 0, bH); bb.TextWrapped = true
+		bb.Position = UDim2.fromOffset(14, 26); bb.Parent = card
+	end
+	task.delay(dur, function()
+		if card.Parent then card:Destroy() end
+	end)
+end
+
 local KeyNames: any = {}
 for _, kc in ipairs(Enum.KeyCode:GetEnumItems()) do
 	KeyNames[kc] = kc.Name
@@ -298,19 +361,33 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		local dragging = false
 		local dragStart: Vector2 = Vector2.zero
 		local startPos: UDim2 = main.Position
-		UserInputService.InputBegan:Connect(function(input, gpe)
-			if gpe then return end
-			if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-			local mp = input.Position
+		local function isPress(input: InputObject): boolean
+			local t = input.UserInputType
+			return t == Enum.UserInputType.MouseButton1 or t == Enum.UserInputType.Touch
+		end
+		local function isMove(input: InputObject): boolean
+			local t = input.UserInputType
+			return t == Enum.UserInputType.MouseMovement or t == Enum.UserInputType.Touch
+		end
+		local function inTitle(p: Vector2): boolean
 			local tp, ts = titleRow.AbsolutePosition, titleRow.AbsoluteSize
-			if mp.X < tp.X or mp.X > tp.X + ts.X or mp.Y < tp.Y or mp.Y > tp.Y + ts.Y then return end
+			return p.X >= tp.X and p.X <= tp.X + ts.X and p.Y >= tp.Y and p.Y <= tp.Y + ts.Y
+		end
+		local function beginDrag(input: InputObject)
+			if not isPress(input) then return end
+			if not inTitle(input.Position) then return end
 			dragging = true
-			dragStart = mp
+			dragStart = input.Position
 			startPos = main.Position
+		end
+		titleRow.InputBegan:Connect(beginDrag)
+		header.InputBegan:Connect(beginDrag)
+		UserInputService.InputBegan:Connect(function(input)
+			beginDrag(input)
 		end)
 		UserInputService.InputChanged:Connect(function(input)
 			if not dragging then return end
-			if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+			if not isMove(input) then return end
 			if main == nil or startPos == nil or dragStart == nil then
 				dragging = false
 				return
@@ -319,7 +396,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
 		end)
 		UserInputService.InputEnded:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+			if isPress(input) then dragging = false end
 		end)
 	end
 
@@ -330,6 +407,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 	Window._searchables = {}
 	Window._subBars = {} :: any
 	Window._current = nil
+	Window._tabRefresh = {} :: any
 
 	function Window:ToggleVisible()
 		screen.Enabled = not screen.Enabled
@@ -532,8 +610,19 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		end
 
 		table.insert(self.Tabs, { Tab = Tab, Page = page, Label = lbl, Cap = {capDark, capMid, capTop}, EdgeTop = edgeTop, Foot = foot })
+		table.insert(self._tabRefresh, refreshTabs)
 		if isActive then refreshTabs() end
 		return Tab
+	end
+
+	function Window:SetTab(name: any)
+		for i, tb in ipairs(self.Tabs) do
+			if tb.Tab == name or tb.Tab.Name == name then
+				(self._tabRefresh[i])()
+				return true
+			end
+		end
+		return false
 	end
 
 	function Window:_addGroupbox(column: Frame, title: string, heightPx: number?, widthScale: number?): any
@@ -617,6 +706,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			sw.Position = getPos(28)
 			Stroke(sw, T2.Stroke, 1)
 			local alpha0 = 1
+			if cp.DefaultAlpha ~= nil then alpha0 = math.clamp(cp.DefaultAlpha, 0, 1) end
 			if cflag then
 				local av = Chuddy.Flags[cflag .. "Alpha"]
 				if typeof(av) == "number" then alpha0 = math.clamp(av, 0, 1) end
@@ -629,12 +719,12 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			function C:Set(c: Color3)
 				C.Value = c; refreshSwatch()
 				if cflag then Chuddy.Flags[cflag] = c end
-				if ccb then task.spawn(ccb, c) end
+				if ccb then task.spawn(ccb, c, C.Alpha) end
 			end
 			function C:SetAlpha(a: number)
 				C.Alpha = math.clamp(a, 0, 1); refreshSwatch()
 				if cflag then Chuddy.Flags[cflag .. "Alpha"] = C.Alpha end
-				if ccb then task.spawn(ccb, C.Value) end
+				if ccb then task.spawn(ccb, C.Value, C.Alpha) end
 			end
 			if cflag then
 				Chuddy:FlagType(cflag .. "Alpha", "float")
@@ -893,6 +983,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			lab.TextTruncate = Enum.TextTruncate.AtEnd; lab.Parent = row
 
 			local Ctrl: any = {}
+			Ctrl._group = self
 			Ctrl.Row = row; Ctrl.Value = default
 			if flag then Chuddy:FlagType(flag, "bool") end
 			if flag then Chuddy:RegisterFlag(flag, default, function(v) Ctrl:Set(v) end) end
@@ -930,6 +1021,11 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				pl.TextXAlignment = Enum.TextXAlignment.Center; pl.TextTruncate = Enum.TextTruncate.AtEnd
 				pl.Position = UDim2.fromScale(0.5, 0.5); pl.Parent = pill
 				local K: any = { Key = dKey, Mode = dMode, Capturing = false }
+			function K:Clear()
+				K.Key = nil; K.Capturing = false; paint()
+				if kflag then Chuddy.Flags[kflag] = nil end
+			end
+			if kflag then Chuddy._keybinds[kflag] = K end
 				local function paint()
 					if K.Capturing then pl.Text = "..."
 					elseif K.Mode == 2 then pl.Text = "ON"; pl.TextColor3 = T2.ToggleOn
@@ -937,7 +1033,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				end
 				paint()
 				pill.MouseButton1Click:Connect(function()
-					K.Capturing = true; paint()
+					K.Capturing = true; Chuddy.Binding = true; paint()
 				end)
 				pill.MouseButton2Click:Connect(function()
 					K.Mode = (K.Mode + 1) % 3; paint()
@@ -948,7 +1044,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 					if K.Capturing then
 						if input.KeyCode == Enum.KeyCode.Escape then K.Key = nil
 						elseif input.KeyCode ~= Enum.KeyCode.Unknown then K.Key = input.KeyCode end
-						K.Capturing = false; paint()
+						K.Capturing = false; Chuddy.Binding = false; paint()
 						if kflag then Chuddy.Flags[kflag] = K.Key end
 						if kcb then task.spawn(kcb, K.Key, K.Mode) end
 						return
@@ -975,6 +1071,25 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			end
 			function Ctrl:AddColorPicker(cp: any): any
 				return makeSwatch(row, reserve, cp)
+			end
+			function Ctrl:Gear(builder)
+				if type(builder) ~= "function" then return Ctrl end
+				local G = Ctrl._group
+				G:Indent()
+				local panel = {
+					Toggle = function(_, o) return G:AddCheckbox(o) end,
+					Slider = function(_, o) return G:AddSlider(o) end,
+					Dropdown = function(_, o) return G:AddDropdown(o) end,
+					ColorPicker = function(_, o) return G:AddColorRow(o) end,
+					Input = function(_, o) return G:AddTextbox(o) end,
+					Button = function(_, o) return G:AddButton(o) end,
+					ButtonRow = function(_, o) return G:AddButtonRow(o) end,
+					Label = function(_, t) return G:AddLabel(t) end,
+				}
+				local ok, err = pcall(builder, panel)
+				G:Unindent()
+				if not ok then error(err, 0) end
+				return Ctrl
 			end
 			function Ctrl:AddBadge(defaultOn: boolean?): any
 				local b = New("Frame", { Parent = row, BackgroundColor3 = T2.ControlBg, BorderSizePixel = 0,
@@ -1044,6 +1159,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 
 			local S: any = { Value = default }
 			local function fmt(v: number): string
+				if opts2.ZeroText ~= nil and v <= min then return opts2.ZeroText end
 				if unlimitedAtMax and math.floor(v + 0.5) >= max then return "Unlimited" end
 				if isFloat then return string.format("%." .. tostring(decimals) .. "f%s", v, suffix) end
 				return string.format("%d%s", math.floor(v + 0.5), suffix)
@@ -1084,15 +1200,19 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		function Group:AddDropdown(opts2: any): any
 			local text = opts2.Text or opts2[1] or ""
 			local items = opts2.Items or opts2.Options or { "Option 1" }
+			local multi = opts2.Multi or false
 			local default = opts2.Default or 1
-			if typeof(default) == "string" then
+			if multi then
+				if typeof(default) ~= "table" then default = {} end
+			elseif typeof(default) == "string" then
 				for i, v in ipairs(items) do if v == default then default = i break end end
 				if typeof(default) == "string" then default = 1 end
 			end
 			local cb = opts2.Callback
 			local flag = opts2.Flag
-			if flag then Chuddy:FlagType(flag, "int") end
-			if flag and Chuddy.Flags[flag] ~= nil then
+			if flag then Chuddy._dropdownItems[flag] = items end
+			if flag then Chuddy:FlagType(flag, if multi then "multiselect" else "int") end
+			if not multi and flag and Chuddy.Flags[flag] ~= nil then
 				local fv = Chuddy.Flags[flag]
 				if typeof(fv) == "number" then default = math.clamp(fv, 1, #items)
 				elseif typeof(fv) == "string" then for i, v in ipairs(items) do if v == fv then default = i break end end end
@@ -1108,7 +1228,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				BackgroundColor3 = T2.ControlBg, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 15) }) :: TextButton
 			table.insert(droots, dd)
 			Stroke(dd, T2.Stroke, 1)
-			local cur = Label(items[default] or "", 11, T2.TextStrong)
+			local cur = Label(if multi then "" else (items[default] or ""), 11, T2.TextStrong)
 			cur.AutomaticSize = Enum.AutomaticSize.None
 			cur.Position = UDim2.fromOffset(5, 0); cur.Size = UDim2.new(1, -20, 1, 0)
 			cur.TextTruncate = Enum.TextTruncate.AtEnd; cur.Parent = dd
@@ -1117,15 +1237,66 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			dd.MouseEnter:Connect(function() for _, s in ipairs(dd:GetChildren()) do if s:IsA("UIStroke") then s.Color = T2.StrokeHover end end end)
 			dd.MouseLeave:Connect(function() for _, s in ipairs(dd:GetChildren()) do if s:IsA("UIStroke") then s.Color = T2.Stroke end end end)
 
-			local D: any = { Index = default, Items = items }
+			local D: any = { Index = default, Items = items, Selected = {} :: any }
+			if multi then
+				local init: any = if flag and typeof(Chuddy.Flags[flag]) == "table" then Chuddy.Flags[flag] else default
+				if typeof(init) == "table" then
+					for _, want in ipairs(init) do
+						for i, name in ipairs(items) do if name == want then D.Selected[i] = true end end
+					end
+				end
+			end
+			function D:RefreshMulti(silent: boolean?)
+				local vals: any = {}
+				for i, name in ipairs(D.Items) do if D.Selected[i] then table.insert(vals, name) end end
+				cur.Text = if #vals > 0 then table.concat(vals, ", ") else (opts2.Empty or "none")
+				if flag then Chuddy.Flags[flag] = vals end
+				if cb and not silent then task.spawn(cb, vals) end
+			end
+			function D:ApplyMulti(arr: any)
+				table.clear(D.Selected)
+				if typeof(arr) == "table" then
+					for _, want in ipairs(arr) do
+						for i, name in ipairs(D.Items) do if name == want then D.Selected[i] = true end end
+					end
+				end
+				D:RefreshMulti()
+			end
+			if multi then D:RefreshMulti(true) end
 			local pop: Frame? = nil
-			function D:Set(i: number)
+			function D:Set(i: number | string, silent: boolean?)
+				if typeof(i) == "string" then
+					for j, name in ipairs(D.Items) do if name == i then i = j break end end
+				end
+				if typeof(i) ~= "number" then return end
 				D.Index = math.clamp(i, 1, #D.Items)
 				cur.Text = D.Items[D.Index]
 				if flag then Chuddy.Flags[flag] = D.Index end
-				if cb then task.spawn(cb, D.Items[D.Index], D.Index) end
+				if cb and not silent then task.spawn(cb, D.Items[D.Index], D.Index) end
 			end
-			function D:Get() return D.Items[D.Index], D.Index end
+			function D:SetOptions(newItems: any)
+				D.Items = newItems or {}
+				if multi then
+					local vals: any = {}
+					for i, name in ipairs(D.Items) do if D.Selected[i] then table.insert(vals, name) end end
+					table.clear(D.Selected)
+					for _, want in ipairs(vals) do
+						for i, name in ipairs(D.Items) do if name == want then D.Selected[i] = true end end
+					end
+					D:RefreshMulti(true)
+				else
+					if D.Index > #D.Items then D.Index = 1 end
+					cur.Text = D.Items[D.Index] or ""
+				end
+			end
+			function D:Get(): any
+				if multi then
+					local vals: any = {}
+					for i, name in ipairs(D.Items) do if D.Selected[i] then table.insert(vals, name) end end
+					return vals
+				end
+				return D.Items[D.Index], D.Index
+			end
 			dd.MouseButton1Click:Connect(function()
 				if pop and pop.Parent then pop:Destroy() pop = nil return end
 				pop = New("Frame", { BackgroundColor3 = T2.ListEven, BorderSizePixel = 0,
@@ -1140,18 +1311,34 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				for i, name in ipairs(items) do
 					local it = New("TextButton", { Parent = pop, Text = "", AutoButtonColor = false,
 						BackgroundColor3 = T2.ListEven, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 13) }) :: TextButton
-					local il = Label(name, 11, if i == D.Index then T2.Accent else T2.Text)
+					local il = Label(name, 11, if (multi and D.Selected[i]) or (not multi and i == D.Index) then T2.Accent else T2.Text)
 					il.AutomaticSize = Enum.AutomaticSize.None
 					il.Position = UDim2.fromOffset(5, 0); il.Size = UDim2.new(1, -10, 1, 0)
 					il.TextTruncate = Enum.TextTruncate.AtEnd; il.Parent = it
 					it.MouseEnter:Connect(function() il.TextColor3 = T2.Accent end)
-					if i ~= D.Index then it.MouseLeave:Connect(function() il.TextColor3 = T2.Text end) end
+					it.MouseLeave:Connect(function()
+						il.TextColor3 = if (multi and D.Selected[i]) or (not multi and i == D.Index) then T2.Accent else T2.Text
+					end)
 					it.MouseButton1Click:Connect(function()
-						D:Set(i); if pop then pop:Destroy() pop = nil end
+						if multi then
+							if D.Selected[i] then D.Selected[i] = nil else D.Selected[i] = true end
+							D:RefreshMulti()
+							il.TextColor3 = if D.Selected[i] then T2.Accent else T2.Text
+						else
+							D:Set(i); if pop then pop:Destroy() pop = nil end
+						end
 					end)
 				end
 			end)
-			if flag then Chuddy:RegisterFlag(flag, default, function(v) if typeof(v)=="number" then D:Set(v) end end) end
+			if flag then
+				if multi then
+					local def0: any = {}
+					for i, name in ipairs(items) do if D.Selected[i] then table.insert(def0, name) end end
+					Chuddy:RegisterFlag(flag, def0, function(v) if typeof(v) == "table" then D:ApplyMulti(v) end end)
+				else
+					Chuddy:RegisterFlag(flag, default, function(v) if typeof(v)=="number" then D:Set(v) end end)
+				end
+			end
 			local droot = indentWrap(droots)
 			self._window:_registerSearchable(droot, shown .. " " .. table.concat(items, " "))
 			return D
@@ -1186,6 +1373,11 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			pl.TextXAlignment = Enum.TextXAlignment.Center; pl.TextTruncate = Enum.TextTruncate.AtEnd
 			pl.Position = UDim2.fromScale(0.5, 0.5); pl.Parent = pill
 			local K: any = { Key = dKey, Mode = dMode, State = false, Capturing = false }
+			function K:Clear()
+				K.Key = nil; K.State = false; K.Capturing = false; paint()
+				if kflag then Chuddy.Flags[kflag] = nil end
+			end
+			if kflag then Chuddy._keybinds[kflag] = K end
 			local function paint()
 				if K.Capturing then pl.Text = "..."
 				elseif K.Mode == 2 then pl.Text = "ON"; pl.TextColor3 = T2.ToggleOn
@@ -1196,7 +1388,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				if cb then task.spawn(cb, K.State) end
 			end
 			pill.MouseButton1Click:Connect(function()
-				K.Capturing = true; paint()
+				K.Capturing = true; Chuddy.Binding = true; paint()
 			end)
 			pill.MouseButton2Click:Connect(function()
 				K.Mode = (K.Mode + 1) % 3; paint()
@@ -1206,7 +1398,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				if K.Capturing then
 					if input.KeyCode == Enum.KeyCode.Escape then K.Key = nil
 					elseif input.KeyCode ~= Enum.KeyCode.Unknown then K.Key = input.KeyCode end
-					K.Capturing = false; paint()
+					K.Capturing = false; Chuddy.Binding = false; paint()
 					if kflag then Chuddy.Flags[kflag] = K.Key end
 					return
 				end
@@ -1348,6 +1540,12 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				if flag then Chuddy.Flags[flag] = tb.Text end
 				if cb then task.spawn(cb, tb.Text) end
 			end)
+			if opts2.Live then
+				tb:GetPropertyChangedSignal("Text"):Connect(function()
+					if flag then Chuddy.Flags[flag] = tb.Text end
+					if cb then task.spawn(cb, tb.Text, false) end
+				end)
+			end
 			table.insert(troots, tb)
 			indentWrap(troots)
 			return tb
@@ -1373,6 +1571,8 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				table.insert(lines, string.format("%s=%d", k, v and 1 or 0))
 			elseif t == "key" then
 				table.insert(lines, string.format("%s=%s", k, if typeof(v) == "EnumItem" then (v :: any).Name else "-"))
+			elseif t == "multiselect" and typeof(v) == "table" then
+				table.insert(lines, string.format("%s=%s", k, table.concat(v, ",")))
 			elseif typeof(v) == "string" then
 				table.insert(lines, string.format("%s=%s", k, v))
 			elseif typeof(v) == "number" then
@@ -1411,6 +1611,10 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				elseif t == "key" then
 					local okkc, kc = pcall(function() return (Enum.KeyCode :: any)[payload] end)
 					Chuddy.Flags[k] = if okkc then kc else nil
+				elseif t == "multiselect" then
+					local arr: any = {}
+					for part in string.gmatch(payload, "[^,]+") do table.insert(arr, part) end
+					Chuddy.Flags[k] = arr
 				elseif t == "string" then
 					Chuddy.Flags[k] = payload
 				else

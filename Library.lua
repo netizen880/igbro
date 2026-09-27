@@ -449,6 +449,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		local hlist = New("UIListLayout", {
 			Parent = page, FillDirection = Enum.FillDirection.Horizontal,
 			Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder,
+			VerticalAlignment = Enum.VerticalAlignment.Top,
 		}) :: UIListLayout
 
 		local Tab: any = {}
@@ -527,7 +528,8 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				local pg = New("Frame", { Parent = contentH, BackgroundTransparency = 1, Visible = active,
 					Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y }) :: Frame
 				New("UIListLayout", { Parent = pg, FillDirection = Enum.FillDirection.Horizontal,
-					Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder })
+					Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder,
+					VerticalAlignment = Enum.VerticalAlignment.Top })
 				table.insert(Bar._pages, pg)
 				table.insert(Bar._buttons, tp)
 				tp.Btn.MouseButton1Click:Connect(function()
@@ -946,23 +948,18 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 					if typeof(v) == "number" then K.Mode = v end
 					paint()
 				end) end
-				pill.MouseButton1Click:Connect(function()
-					K.Capturing = true; Chuddy.Binding = true; paint()
-				end)
-				pill.MouseButton2Click:Connect(function()
-					K.Mode = (K.Mode + 1) % 3; paint()
-					if mflag then Chuddy.Flags[mflag] = K.Mode end
+			pill.MouseButton1Click:Connect(function()
+				K.Capturing = true; Chuddy.Binding = true; paint()
+			end)
+			UserInputService.InputBegan:Connect(function(input, gpe)
+				if K.Capturing then
+					if input.KeyCode == Enum.KeyCode.Escape or input.KeyCode == Enum.KeyCode.Backspace then K.Key = nil
+					elseif input.KeyCode ~= Enum.KeyCode.Unknown then K.Key = input.KeyCode end
+					K.Capturing = false; Chuddy.Binding = false; paint()
+					if kflag then Chuddy.Flags[kflag] = K.Key end
 					if kcb then task.spawn(kcb, K.Key, K.Mode) end
-				end)
-				UserInputService.InputBegan:Connect(function(input, gpe)
-					if K.Capturing then
-						if input.KeyCode == Enum.KeyCode.Escape or input.KeyCode == Enum.KeyCode.Backspace then K.Key = nil
-						elseif input.KeyCode ~= Enum.KeyCode.Unknown then K.Key = input.KeyCode end
-						K.Capturing = false; Chuddy.Binding = false; paint()
-						if kflag then Chuddy.Flags[kflag] = K.Key end
-						if kcb then task.spawn(kcb, K.Key, K.Mode) end
-						return
-					end
+					return
+				end
 					if gpe or K.Key == nil then return end
 					if input.KeyCode == K.Key then
 						if K.Mode == 0 then Ctrl:Set(not Ctrl.Value)
@@ -1114,7 +1111,10 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			local shown: string = (text:match("^(.-)##") or text)
 			local droots: {GuiObject} = {}
 			if text ~= "" then
-				local cap = Label(shown, 11, T2.Text) cap.Position = UDim2.fromOffset(0, 0) cap.Parent = box
+				local cap = Label(shown, 11, T2.Text)
+				cap.AutomaticSize = Enum.AutomaticSize.Y
+				cap.Position = UDim2.fromOffset(0, 0); cap.Size = UDim2.new(1, 0, 0, 0)
+				cap.TextTruncate = Enum.TextTruncate.AtEnd; cap.Parent = box
 				table.insert(droots, cap)
 			end
 			local dd = New("TextButton", { Parent = box, Text = "", AutoButtonColor = false,
@@ -1235,10 +1235,6 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			end
 			pill.MouseButton1Click:Connect(function()
 				K.Capturing = true; Chuddy.Binding = true; paint()
-			end)
-			pill.MouseButton2Click:Connect(function()
-				K.Mode = (K.Mode + 1) % 3; paint()
-				if mflag then Chuddy.Flags[mflag] = K.Mode end
 			end)
 			UserInputService.InputBegan:Connect(function(input, gpe)
 				if K.Capturing then
@@ -1374,7 +1370,10 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			if flag and Chuddy.Flags[flag] ~= nil then def = tostring(Chuddy.Flags[flag]) end
 			local troots: {GuiObject} = {}
 			if text ~= "" then
-				local cap = Label(text, 11, T2.Text) cap.Parent = box
+				local cap = Label(text, 11, T2.Text)
+				cap.AutomaticSize = Enum.AutomaticSize.Y
+				cap.Position = UDim2.fromOffset(0, 0); cap.Size = UDim2.new(1, 0, 0, 0)
+				cap.TextTruncate = Enum.TextTruncate.AtEnd; cap.Parent = box
 				table.insert(troots, cap)
 			end
 			local tb = New("TextBox", { Parent = box, BackgroundColor3 = T2.CheckboxBg,

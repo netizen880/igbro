@@ -960,7 +960,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 					if kcb then task.spawn(kcb, K.Key, K.Mode) end
 					return
 				end
-					if gpe or K.Key == nil then return end
+					if gpe or Chuddy.Binding or K.Key == nil then return end
 					if input.KeyCode == K.Key then
 						if K.Mode == 0 then Ctrl:Set(not Ctrl.Value)
 						elseif K.Mode == 1 then Ctrl:Set(true) end
@@ -1244,7 +1244,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 					if kflag then Chuddy.Flags[kflag] = K.Key end
 					return
 				end
-				if gpe or K.Key == nil then return end
+				if gpe or Chuddy.Binding or K.Key == nil then return end
 				if input.KeyCode == K.Key then
 					if K.Mode == 0 then K.State = not K.State; fire()
 					elseif K.Mode == 1 then K.State = true; fire() end

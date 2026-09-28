@@ -811,6 +811,40 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 				BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 1) }) :: Frame
 			return d
 		end
+		function Group:AddTabBar(opts2: any): any
+			local names = opts2.Names or opts2
+			local Bar: any = { Index = 0, OnSelect = nil, _buttons = {} }
+			local strip = New("Frame", { Parent = box, BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 15) }) :: Frame
+			New("UIListLayout", { Parent = strip, FillDirection = Enum.FillDirection.Horizontal,
+				Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder,
+				VerticalAlignment = Enum.VerticalAlignment.Bottom })
+			for i, tname in ipairs(names) do
+				local idx = i
+				local tp = buildTopTab(strip, tname, idx == 1, idx, UDim.new(0, 15))
+				for j = #Chuddy._accentRegistry, 1, -1 do
+					if Chuddy._accentRegistry[j].Inst == tp.Label then table.remove(Chuddy._accentRegistry, j) end
+				end
+				tp.Label.TextColor3 = if idx == 1 then T.Accent else T.TextStrong
+				Bar._buttons[idx] = tp
+				tp.Btn.MouseButton1Click:Connect(function() Bar:Select(idx) end)
+			end
+			function Bar:Select(i: number)
+				Bar.Index = i
+				for j, tp in ipairs(Bar._buttons) do
+					local on = j == i
+					tp.Cap[1].Visible = on
+					tp.Cap[2].Visible = on
+					tp.Cap[3].Visible = on
+					tp.Foot.Visible = on
+					tp.EdgeTop.BackgroundColor3 = if on then T.TabHighlight else T.TabBorder
+					tp.Label.TextColor3 = if on then T.Accent else T.TextStrong
+				end
+				if Bar.OnSelect then task.spawn(Bar.OnSelect, i) end
+			end
+			Bar:Select(1)
+			return Bar
+		end
 		function Group:AddButton(opts2: any): any
 			local text = opts2.Text or opts2[1] or "Button"
 			local cb = opts2.Callback or opts2.Func

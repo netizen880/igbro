@@ -814,10 +814,15 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		function Group:AddTabBar(opts2: any): any
 			local names = opts2.Names or opts2
 			local Bar: any = { Index = 0, OnSelect = nil, _buttons = {} }
-			local strip = New("Frame", { Parent = box, BackgroundTransparency = 1,
+			local holder = New("Frame", { Parent = box, BackgroundTransparency = 1,
+				Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y }) :: Frame
+			New("UIListLayout", { Parent = holder, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 0) })
+			New("Frame", { Parent = holder, BackgroundColor3 = T.Stroke, BorderSizePixel = 0,
+				LayoutOrder = 2, Size = UDim2.new(1, 0, 0, 1) })
+			local strip = New("Frame", { Parent = holder, BackgroundTransparency = 1, LayoutOrder = 1,
 				Size = UDim2.new(1, 0, 0, 15) }) :: Frame
 			New("UIListLayout", { Parent = strip, FillDirection = Enum.FillDirection.Horizontal,
-				Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder,
+				Padding = UDim.new(0, 0), SortOrder = Enum.SortOrder.LayoutOrder,
 				VerticalAlignment = Enum.VerticalAlignment.Bottom })
 			for i, tname in ipairs(names) do
 				local idx = i

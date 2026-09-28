@@ -817,6 +817,8 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			local holder = New("Frame", { Parent = box, BackgroundTransparency = 1,
 				Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y }) :: Frame
 			New("UIListLayout", { Parent = holder, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 0) })
+			New("Frame", { Parent = holder, BackgroundTransparency = 1, LayoutOrder = 0,
+				Size = UDim2.new(1, 0, 0, 6) })
 			New("Frame", { Parent = holder, BackgroundColor3 = T.Stroke, BorderSizePixel = 0,
 				LayoutOrder = 2, Size = UDim2.new(1, 0, 0, 1) })
 			local strip = New("Frame", { Parent = holder, BackgroundTransparency = 1, LayoutOrder = 1,

@@ -19,6 +19,12 @@ Chuddy._flagOrder = {} :: any
 Chuddy._windows = {} :: any
 Chuddy._dropdownItems = {} :: any
 Chuddy.Binding = false
+Chuddy._configSub = nil :: string?
+local function cfgDir(): string
+	local sub = Chuddy._configSub
+	if sub and sub ~= "" then return "chudvision/Configs/" .. sub end
+	return "chudvision/Configs"
+end
 Chuddy._keybinds = {} :: any
 
 Chuddy.Theme = {
@@ -1503,7 +1509,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		return typeof(writefile) == "function" and typeof(readfile) == "function"
 	end
 	function Window:ConfigFolder(): string
-		return "chudvision/configs"
+		return cfgDir()
 	end
 	function Window:SaveFile(name: string): boolean
 		if name == nil or name == "" then return false end
@@ -1512,9 +1518,10 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 			pcall(function()
 				if typeof(makefolder) == "function" then
 					pcall(makefolder, "chudvision")
-					pcall(makefolder, "chudvision/configs")
+					pcall(makefolder, "chudvision/Configs")
+					pcall(makefolder, cfgDir())
 				end
-				writefile("chudvision/configs/" .. name .. ".chud", data)
+				writefile(cfgDir() .. "/" .. name .. ".chud", data)
 			end)
 			return true
 		end
@@ -1526,7 +1533,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 		local data: any = nil
 		if hasFS() then
 			local ok, res = pcall(function()
-				return readfile("chudvision/configs/" .. name .. ".chud")
+				return readfile(cfgDir() .. "/" .. name .. ".chud")
 			end)
 			if ok and type(res) == "string" then data = res end
 		else
@@ -1537,7 +1544,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 	end
 	function Window:ListFiles(): any
 		if hasFS() then
-			local ok, files = pcall(function() return listfiles("chudvision/configs") end)
+			local ok, files = pcall(function() return listfiles(cfgDir()) end)
 			if ok and type(files) == "table" then
 				local out: any = {}
 				for _, f in ipairs(files) do
@@ -1556,7 +1563,7 @@ function Chuddy:CreateWindow(opts: WindowOpts?): any
 	function Window:DeleteFile(name: string): boolean
 		if name == nil or name == "" then return false end
 		if hasFS() then
-			pcall(function() delfile("chudvision/configs/" .. name .. ".chud") end)
+			pcall(function() delfile(cfgDir() .. "/" .. name .. ".chud") end)
 			return true
 		end
 		FS_MEM[name] = nil
